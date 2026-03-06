@@ -1,4 +1,4 @@
-# Claws.so
+# Claws
 
 Local-first, Vercel-native, chat-first agent OS.
 
