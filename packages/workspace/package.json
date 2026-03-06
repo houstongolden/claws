@@ -1,0 +1,21 @@
+{
+  "name": "@claws/workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo lint workspace",
+    "test": "echo test workspace",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@claws/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

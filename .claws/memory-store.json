@@ -1,0 +1,26 @@
+{
+  "entries": [
+    {
+      "id": "mem_1772792450707_xz3ydh",
+      "text": "User: create a task called Browser QA follow-up in demo-local\nAssistant: Created task \"Browser QA follow-up\" in demo-local",
+      "source": "dashboard-session",
+      "tags": [
+        "checkpoint"
+      ],
+      "promoted": false,
+      "createdAt": 1772792450707
+    },
+    {
+      "id": "mem_1772779855508_muij0g",
+      "text": "security-memory-1772779855508",
+      "source": "chat",
+      "tags": [
+        "chat-capture"
+      ],
+      "promoted": true,
+      "createdAt": 1772779855508,
+      "promotedAt": 1772779855510
+    }
+  ],
+  "updatedAt": 1772792450707
+}

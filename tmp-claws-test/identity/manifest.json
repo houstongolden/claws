@@ -1,0 +1,6 @@
+{
+  "version": "0.1.0",
+  "type": "you-md",
+  "name": "default-identity",
+  "files": ["you.md", "profile/about.md", "profile/now.md", "preferences/agent.md"]
+}

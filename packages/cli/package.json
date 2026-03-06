@@ -1,0 +1,14 @@
+{
+  "name": "@claws/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ./bin/claws.mjs --help",
+    "build": "echo no-build",
+    "typecheck": "echo no-typecheck",
+    "lint": "echo lint cli",
+    "test": "echo test cli",
+    "clean": "echo clean cli"
+  }
+}

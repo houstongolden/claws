@@ -1,0 +1,583 @@
+{
+  "traces": [
+    {
+      "id": "5a6e5ee8-698c-4667-88fd-640d411d6f93",
+      "ts": 1772823626509,
+      "type": "chat",
+      "agentId": "founder",
+      "summary": "Handled by founder (founder)",
+      "data": {
+        "message": "yo",
+        "toolResults": []
+      }
+    },
+    {
+      "id": "cbc8fa6a-a90d-4323-b985-2665539ce4a3",
+      "ts": 1772823613506,
+      "type": "chat",
+      "agentId": "founder",
+      "summary": "Handled by founder (founder)",
+      "data": {
+        "message": "how do you work?",
+        "toolResults": []
+      }
+    },
+    {
+      "id": "20bb7dee-5341-41d3-a5ff-7aad5b9d9d15",
+      "ts": 1772810283694,
+      "type": "project-create",
+      "agentId": "developer",
+      "summary": "Created project \"note taking to do list app\" at projects/note-taking-to-do-list-app",
+      "data": {
+        "projectName": "note taking to do list app",
+        "slug": "note-taking-to-do-list-app"
+      }
+    },
+    {
+      "id": "fdbbbac0-142f-407c-af32-80bcabe52f39",
+      "ts": 1772810262047,
+      "type": "project-create",
+      "agentId": "developer",
+      "summary": "Created project \"launch-site\" at projects/launch-site",
+      "data": {
+        "projectName": "launch-site",
+        "slug": "launch-site"
+      }
+    },
+    {
+      "id": "aeba5d7a-823f-4916-bf0c-0f2ee8ec3409",
+      "ts": 1772792463959,
+      "type": "approval-required",
+      "agentId": "orchestrator",
+      "summary": "Approval required for fs.write",
+      "data": {
+        "approvalId": "apr_1772792463959_7e9h2v",
+        "toolName": "fs.write",
+        "environment": "workspace",
+        "args": {
+          "path": "drafts/approval-verification.md",
+          "content": "needs approval"
+        }
+      }
+    },
+    {
+      "id": "3444c84e-d128-4ac4-a1ca-3382670d9e3d",
+      "ts": 1772792450708,
+      "type": "tool-call",
+      "agentId": "orchestrator",
+      "summary": "memory.flush",
+      "data": {
+        "toolName": "memory.flush",
+        "environment": "workspace",
+        "risk": "low",
+        "args": {
+          "text": "User: create a task called Browser QA follow-up in demo-local\nAssistant: Created task \"Browser QA follow-up\" in demo-local",
+          "source": "dashboard-session",
+          "tags": [
+            "checkpoint"
+          ]
+        }
+      }
+    },
+    {
+      "id": "c7bc889c-8b55-44d3-a8fb-f70261c378f8",
+      "ts": 1772792420630,
+      "type": "chat",
+      "agentId": "founder",
+      "summary": "Handled by founder (founder)",
+      "data": {
+        "message": "status",
+        "toolResults": [
+          {
+            "toolName": "status.get",
+            "ok": true,
+            "data": {
+              "gateway": "online",
+              "mode": "local-first"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "c7d3d51b-b1e1-4f7f-95d6-5080276893e7",
+      "ts": 1772792420630,
+      "type": "tool-call",
+      "agentId": "founder",
+      "summary": "status.get",
+      "data": {
+        "toolName": "status.get",
+        "environment": "api",
+        "risk": "low",
+        "args": {}
+      }
+    },
+    {
+      "id": "d434952e-2a70-48bd-b5ca-a1f8c7332f43",
+      "ts": 1772792369000,
+      "type": "tool-call",
+      "agentId": "orchestrator",
+      "summary": "fs.read",
+      "data": {
+        "toolName": "fs.read",
+        "environment": "workspace",
+        "risk": "low",
+        "args": {
+          "path": "project-context/tasks.md"
+        }
+      }
+    },
+    {
+      "id": "c461b28e-5469-4c5a-be62-21825fb424a2",
+      "ts": 1772792362370,
+      "type": "tool-call",
+      "agentId": "orchestrator",
+      "summary": "fs.read",
+      "data": {
+        "toolName": "fs.read",
+        "environment": "workspace",
+        "risk": "low",
+        "args": {
+          "path": "project-context/tasks.md"
+        }
+      }
+    },
+    {
+      "id": "3fac05af-e6b8-4484-9074-50956cc48c14",
+      "ts": 1772792353710,
+      "type": "tool-call",
+      "agentId": "orchestrator",
+      "summary": "fs.read",
+      "data": {
+        "toolName": "fs.read",
+        "environment": "workspace",
+        "risk": "low",
+        "args": {
+          "path": "project-context/tasks.md"
+        }
+      }
+    },
+    {
+      "id": "60816d31-f742-4b48-812a-824de7465b40",
+      "ts": 1772792346903,
+      "type": "tool-call",
+      "agentId": "orchestrator",
+      "summary": "fs.list",
+      "data": {
+        "toolName": "fs.list",
+        "environment": "workspace",
+        "risk": "low",
+        "args": {
+          "path": "project-context"
+        }
+      }
+    },
+    {
+      "id": "f0c4f36b-a94a-431f-9297-d6d6af2e1db5",
+      "ts": 1772792317781,
+      "type": "chat",
+      "agentId": "founder",
+      "summary": "Handled by founder (founder)",
+      "data": {
+        "message": "status",
+        "toolResults": [
+          {
+            "toolName": "status.get",
+            "ok": true,
+            "data": {
+              "gateway": "online",
+              "mode": "local-first"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "3beacbf4-b1d3-41e1-b041-7e05f85ec434",
+      "ts": 1772792317781,
+      "type": "tool-call",
+      "agentId": "founder",
+      "summary": "status.get",
+      "data": {
+        "toolName": "status.get",
+        "environment": "api",
+        "risk": "low",
+        "args": {}
+      }
+    },
+    {
+      "id": "0f984c48-f1f1-40e2-b98e-8a2dd20a0fb4",
+      "ts": 1772789798652,
+      "type": "task-create",
+      "agentId": "developer",
+      "summary": "Created task \"Browser QA verification\" in QA Browser Project 3",
+      "data": {
+        "taskId": "T-798648",
+        "title": "Browser QA verification",
+        "environment": "workspace",
+        "projectName": "QA Browser Project 3"
+      }
+    },
+    {
+      "id": "f047ff0a-0f02-478f-9469-e53c72c13e37",
+      "ts": 1772789735727,
+      "type": "project-create",
+      "agentId": "developer",
+      "summary": "Created project \"QA Browser Project 3\" at projects/qa-browser-project-3",
+      "data": {
+        "projectName": "QA Browser Project 3",
+        "slug": "qa-browser-project-3"
+      }
+    },
+    {
+      "id": "cf4651bd-b2fb-4b80-a7e2-e1b5b45534b9",
+      "ts": 1772789454380,
+      "type": "task-create",
+      "agentId": "developer",
+      "summary": "Created task \"Browser QA follow-up\" in demo-local",
+      "data": {
+        "taskId": "T-454377",
+        "title": "Browser QA follow-up",
+        "environment": "workspace",
+        "projectName": "demo-local"
+      }
+    },
+    {
+      "id": "444758c2-dec5-411c-bd10-37b8061ae3e5",
+      "ts": 1772789316459,
+      "type": "approval-required",
+      "agentId": "developer",
+      "summary": "Approval required for fs.write",
+      "data": {
+        "approvalId": "apr_1772789316459_fmpc6f",
+        "toolName": "fs.write",
+        "environment": "workspace",
+        "args": {
+          "path": "projects/qa-browser-project-2/project.md",
+          "content": "# project.md\n\n## Name\nQA Browser Project 2\n\n## Summary\nCreated from chat command.\n\n## Status\nactive\n"
+        }
+      }
+    },
+    {
+      "id": "d28e64fa-e4a5-416d-ba60-421a1287a9fa",
+      "ts": 1772788959227,
+      "type": "tool-call",
+      "agentId": "orchestrator",
+      "summary": "fs.read",
+      "data": {
+        "toolName": "fs.read",
+        "environment": "workspace",
+        "risk": "low",
+        "args": {
+          "path": "project-context/tasks.md"
+        }
+      }
+    },
+    {
+      "id": "e07f6745-2b53-41f9-b648-78be570cf032",
+      "ts": 1772788805136,
+      "type": "chat",
+      "agentId": "agency",
+      "summary": "Handled by agency (agency)",
+      "data": {
+        "message": "Create a project called QA Browser Project",
+        "toolResults": []
+      }
+    },
+    {
+      "id": "adfc1314-a049-49bb-9b0c-cab79a768b99",
+      "ts": 1772788712569,
+      "type": "chat",
+      "agentId": "agency",
+      "summary": "Handled by agency (agency)",
+      "data": {
+        "message": "create task",
+        "toolResults": []
+      }
+    },
+    {
+      "id": "3f1b5928-0887-4919-9cbf-db8c5f065062",
+      "ts": 1772788481310,
+      "type": "chat",
+      "agentId": "agency",
+      "summary": "Handled by agency (agency)",
+      "data": {
+        "message": "Test message for history persistence",
+        "toolResults": []
+      }
+    },
+    {
+      "id": "19aa78fc-708d-4b89-ac84-4cfd5f30fcc6",
+      "ts": 1772787989386,
+      "type": "chat",
+      "agentId": "agency",
+      "summary": "Handled by agency (agency)",
+      "data": {
+        "message": "list tools",
+        "toolResults": []
+      }
+    },
+    {
+      "id": "dd8a3518-d4dd-4d3c-ad41-f8ec38f1b371",
+      "ts": 1772787901081,
+      "type": "tool-call",
+      "agentId": "orchestrator",
+      "summary": "memory.search",
+      "data": {
+        "toolName": "memory.search",
+        "environment": "workspace",
+        "risk": "low",
+        "args": {
+          "query": "test query"
+        }
+      }
+    },
+    {
+      "id": "bcfe65b5-ea51-4619-b519-b0eb85567299",
+      "ts": 1772787854925,
+      "type": "chat",
+      "agentId": "agency",
+      "summary": "Handled by agency (agency)",
+      "data": {
+        "message": "hello test",
+        "toolResults": []
+      }
+    },
+    {
+      "id": "5406a9e8-db9b-491d-b78e-a3e0f8bec4ef",
+      "ts": 1772787797003,
+      "type": "chat",
+      "agentId": "agency",
+      "summary": "Handled by agency (agency)",
+      "data": {
+        "message": "status",
+        "toolResults": [
+          {
+            "toolName": "status.get",
+            "ok": true,
+            "data": {
+              "gateway": "online",
+              "mode": "local-first"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "193817bf-d6d1-4fe3-8258-f51542349b2d",
+      "ts": 1772787797003,
+      "type": "tool-call",
+      "agentId": "agency",
+      "summary": "status.get",
+      "data": {
+        "toolName": "status.get",
+        "environment": "api",
+        "risk": "low",
+        "args": {}
+      }
+    },
+    {
+      "id": "de535662-c619-465f-a7bb-cd37719599c1",
+      "ts": 1772779855514,
+      "type": "chat",
+      "agentId": "developer",
+      "summary": "Handled by developer (developer)",
+      "data": {
+        "message": "what did we decide security-memory-1772779855508",
+        "toolResults": [
+          {
+            "toolName": "memory.search",
+            "ok": true,
+            "data": {
+              "query": "what did we decide security-memory-1772779855508",
+              "results": [
+                {
+                  "path": "chat",
+                  "score": 5,
+                  "excerpt": "security-memory-1772779855508",
+                  "memoryId": "mem_1772779855508_muij0g",
+                  "promoted": true,
+                  "createdAt": 1772779855508
+                },
+                {
+                  "path": "projects/security-397030/project.md",
+                  "score": 1,
+                  "excerpt": "## Name\nsecurity-397030\n"
+                },
+                {
+                  "path": "projects/security-397030/tasks.md",
+                  "score": 1,
+                  "excerpt": "## Active\n- [ ] (T-7062) Kickoff security-397030\n"
+                },
+                {
+                  "path": "projects/security-456258/project.md",
+                  "score": 1,
+                  "excerpt": "## Name\nsecurity-456258\n"
+                },
+                {
+                  "path": "projects/security-456258/tasks.md",
+                  "score": 1,
+                  "excerpt": "## Active\n- [ ] (T-6259) Kickoff security-456258\n"
+                },
+                {
+                  "path": "projects/security-643549/project.md",
+                  "score": 1,
+                  "excerpt": "## Name\nsecurity-643549\n"
+                },
+                {
+                  "path": "projects/security-643549/tasks.md",
+                  "score": 1,
+                  "excerpt": "## Active\n- [ ] (T-3549) Kickoff security-643549\n"
+                },
+                {
+                  "path": "projects/security-783203/project.md",
+                  "score": 1,
+                  "excerpt": "## Name\nsecurity-783203\n"
+                }
+              ],
+              "sources": [
+                "prompt/**",
+                "notes/**",
+                "projects/**",
+                "identity/**",
+                ".claws/memory-store.json"
+              ],
+              "note": "Workspace-backed memory search results with promoted/flush memory entries."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "4859ef9d-a7b9-4438-b494-4797f0ac0389",
+      "ts": 1772779855510,
+      "type": "chat",
+      "agentId": "developer",
+      "summary": "Handled by developer (developer)",
+      "data": {
+        "message": "promote memory mem_1772779855508_muij0g",
+        "toolResults": [
+          {
+            "toolName": "memory.promote",
+            "ok": true,
+            "data": {
+              "ok": true,
+              "entryId": "mem_1772779855508_muij0g",
+              "promoted": true,
+              "promotedAt": 1772779855510
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "9a0a0eba-c29a-4245-854b-e6cf49e5a80e",
+      "ts": 1772779855509,
+      "type": "chat",
+      "agentId": "developer",
+      "summary": "Handled by developer (developer)",
+      "data": {
+        "message": "remember this: security-memory-1772779855508",
+        "toolResults": [
+          {
+            "toolName": "memory.flush",
+            "ok": true,
+            "data": {
+              "ok": true,
+              "entry": {
+                "id": "mem_1772779855508_muij0g",
+                "promoted": false,
+                "createdAt": 1772779855508,
+                "source": "chat"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "97684f16-8fe3-4d29-b74b-c91a44046232",
+      "ts": 1772779855507,
+      "type": "approval-required",
+      "agentId": "developer",
+      "summary": "Approval required for fs.write",
+      "data": {
+        "approvalId": "apr_1772779855507_0axknz",
+        "toolName": "fs.write",
+        "args": {
+          "path": "drafts/security-855402-expiry-check.md",
+          "content": "# security-855402-expiry-check\n\nCreated from chat command.\n"
+        }
+      }
+    },
+    {
+      "id": "14960997-541f-48ce-99eb-5e6b7adfcf0c",
+      "ts": 1772779855412,
+      "type": "approval-required",
+      "agentId": "developer",
+      "summary": "Approval required for fs.write",
+      "data": {
+        "approvalId": "apr_1772779855412_81ziht",
+        "toolName": "fs.write",
+        "args": {
+          "path": "drafts/security-855402-once-consumed.md",
+          "content": "# security-855402-once-consumed\n\nCreated from chat command.\n"
+        }
+      }
+    },
+    {
+      "id": "815b135f-9f00-4c91-b0c7-f231af61bac2",
+      "ts": 1772779855411,
+      "type": "draft-create",
+      "agentId": "developer",
+      "summary": "Created draft \"security-855402-once\"",
+      "data": {
+        "draftPath": "drafts/security-855402-once.md"
+      }
+    },
+    {
+      "id": "ccf96b34-0cd1-4196-80d9-7b51164a4055",
+      "ts": 1772779855407,
+      "type": "approval-required",
+      "agentId": "developer",
+      "summary": "Approval required for fs.write",
+      "data": {
+        "approvalId": "apr_1772779855407_c0k4uf",
+        "toolName": "fs.write",
+        "args": {
+          "path": "projects/security-855402/project.md",
+          "content": "# project.md\n\n## Name\nsecurity-855402\n\n## Summary\nCreated from chat command.\n\n## Status\nactive\n"
+        }
+      }
+    },
+    {
+      "id": "bd9da7ad-e8af-4600-8179-933eb6fbf763",
+      "ts": 1772779855403,
+      "type": "approval-required",
+      "agentId": "developer",
+      "summary": "Approval required for fs.write",
+      "data": {
+        "approvalId": "apr_1772779855403_hjnchm",
+        "toolName": "fs.write",
+        "args": {
+          "path": "projects/security-855402/project.md",
+          "content": "# project.md\n\n## Name\nsecurity-855402\n\n## Summary\nCreated from chat command.\n\n## Status\nactive\n"
+        }
+      }
+    },
+    {
+      "id": "dff60256-083a-459c-93df-e80a11a44818",
+      "ts": 1772779855399,
+      "type": "chat",
+      "agentId": "developer",
+      "summary": "Handled by developer (developer)",
+      "data": {
+        "message": "approve-test",
+        "toolResults": []
+      }
+    }
+  ],
+  "approvals": [],
+  "viewState": null,
+  "updatedAt": 1772823626509
+}

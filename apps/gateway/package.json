@@ -1,0 +1,32 @@
+{
+  "name": "@claws/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "echo lint gateway",
+    "test": "echo test gateway",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.58",
+    "@ai-sdk/gateway": "^3.0.66",
+    "@ai-sdk/openai": "^3.0.41",
+    "@ai-sdk/provider": "^3.0.8",
+    "@claws/agents": "workspace:*",
+    "@claws/core": "workspace:*",
+    "@claws/runtime-db": "workspace:*",
+    "@claws/shared": "workspace:*",
+    "@claws/tools": "workspace:*",
+    "@claws/workspace": "workspace:*",
+    "ai": "^6.0.116",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

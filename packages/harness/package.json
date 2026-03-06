@@ -1,0 +1,16 @@
+{
+  "name": "@claws/harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/golden.js",
+    "build": "echo no-build",
+    "typecheck": "echo no-typecheck",
+    "lint": "echo lint harness",
+    "test": "node src/smoke.js && node src/security.js",
+    "test:ui": "node src/ui-smoke.js",
+    "test:all": "node src/smoke.js && node src/security.js && node src/ui-smoke.js",
+    "clean": "echo clean harness"
+  }
+}

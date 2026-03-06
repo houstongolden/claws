@@ -1,0 +1,22 @@
+{
+  "workspace": {
+    "id": "ws_local",
+    "name": "{{WORKSPACE_NAME}}",
+    "path": "."
+  },
+  "models": {
+    "router": "vercel-ai-gateway",
+    "defaultModel": "gpt-5",
+    "fallbackModel": "gpt-5-mini"
+  },
+  "tools": {
+    "approvals": {
+      "mode": "smart",
+      "highRiskAlways": true
+    }
+  },
+  "views": {
+    "primary": "founder",
+    "overlays": ["developer"]
+  }
+}
