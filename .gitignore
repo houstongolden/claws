@@ -8,3 +8,7 @@ turbo
 coverage
 *.log
 .DS_Store
+
+# Project context / prompts (generated or draft)
+project-context/prompts/prompt-ledger-dump2.md
+project-context/Claws-PRD-v0.01.md
