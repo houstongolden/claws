@@ -141,6 +141,9 @@ export type GatewayRuntime = {
   listProactiveNotifications?: (opts?: { unreadOnly?: boolean; limit?: number }) => Promise<unknown[]>;
   listProactiveRuns?: (jobId?: string, limit?: number) => Promise<unknown[]>;
   markProactiveNotificationRead?: (id: string) => Promise<void>;
+  listTriggerEvents?: (limit?: number, offset?: number) => Promise<unknown[]>;
+  listAttentionDecisions?: (limit?: number, offset?: number) => Promise<unknown[]>;
+  getAttentionBudgetConfig?: () => Promise<unknown>;
 };
 
 const CORS_HEADERS = {
@@ -869,6 +872,25 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
         const limit = Number(requestUrl.searchParams.get("limit") ?? 50);
         const runs = await runtime?.listProactiveRuns?.(jobId, limit);
         return json(res, 200, { ok: true, runs: runs ?? [] });
+      }
+
+      if (pathname === "/api/proactive/triggers" && req.method === "GET") {
+        const limit = Number(requestUrl.searchParams.get("limit") ?? 50);
+        const offset = Number(requestUrl.searchParams.get("offset") ?? 0);
+        const triggers = await runtime?.listTriggerEvents?.(limit, offset);
+        return json(res, 200, { ok: true, triggers: triggers ?? [] });
+      }
+
+      if (pathname === "/api/proactive/decisions" && req.method === "GET") {
+        const limit = Number(requestUrl.searchParams.get("limit") ?? 50);
+        const offset = Number(requestUrl.searchParams.get("offset") ?? 0);
+        const decisions = await runtime?.listAttentionDecisions?.(limit, offset);
+        return json(res, 200, { ok: true, decisions: decisions ?? [] });
+      }
+
+      if (pathname === "/api/proactive/attention-budget" && req.method === "GET") {
+        const config = await runtime?.getAttentionBudgetConfig?.();
+        return json(res, 200, { ok: true, config: config ?? null });
       }
 
       // Workspace project directory scanner

@@ -23,7 +23,7 @@ import type {
   ModelTier,
 } from "@claws/shared/types";
 import type { SessionLiveState } from "@claws/shared/types";
-import { SCHEMA_SQL, CONVERSATIONS_SCHEMA_SQL, INTELLIGENCE_SCHEMA_SQL, CHANNELS_SCHEMA_SQL, PROACTIVITY_SCHEMA_SQL } from "./schema.js";
+import { SCHEMA_SQL, CONVERSATIONS_SCHEMA_SQL, INTELLIGENCE_SCHEMA_SQL, CHANNELS_SCHEMA_SQL, PROACTIVITY_SCHEMA_SQL, DECISION_ENGINE_SCHEMA_SQL } from "./schema.js";
 import { getDb, setDb, clearDb } from "./db-internal.js";
 
 export { getDb };
@@ -53,6 +53,7 @@ export async function initRuntimeDb(options: RuntimeDbOptions): Promise<PGlite> 
   await db.exec(INTELLIGENCE_SCHEMA_SQL);
   await db.exec(CHANNELS_SCHEMA_SQL);
   await db.exec(PROACTIVITY_SCHEMA_SQL);
+  await db.exec(DECISION_ENGINE_SCHEMA_SQL);
   return db;
 }
 
@@ -1317,3 +1318,18 @@ export {
   seedBuiltInProactiveJobs,
 } from "./proactivity.js";
 export type { ScheduledJobRow, JobExecutionRow, ProactiveNotificationRow, ModelPolicyRow } from "./proactivity.js";
+export {
+  insertTriggerEvent,
+  getTriggerEvent,
+  listTriggerEvents,
+  insertAttentionCandidate,
+  insertAttentionDecision,
+  updateAttentionDecisionNotificationAndWorkItem,
+  listAttentionDecisions,
+  getRecentDecisionByDedupeKey,
+  createWorkItem,
+  listWorkItems,
+  getAttentionBudgetConfig,
+  countProactiveNotificationsToday,
+  isQuietHours,
+} from "./decision-engine.js";

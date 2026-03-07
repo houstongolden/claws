@@ -1,0 +1,25 @@
+{
+  "name": "@claws-so/create",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Create a new Claws AI OS workspace — bootstrap CLI",
+  "bin": {
+    "create-claws": "./bin/create-claws.mjs",
+    "@claws-so/create": "./bin/create-claws.mjs"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "scripts": {
+    "dev": "node ./bin/create-claws.mjs --help",
+    "build": "echo no-build",
+    "typecheck": "echo no-typecheck",
+    "lint": "echo lint create",
+    "test": "node ./bin/create-claws.mjs --help",
+    "clean": "echo clean create"
+  },
+  "keywords": ["claws", "ai", "os", "create", "bootstrap"],
+  "license": "MIT"
+}

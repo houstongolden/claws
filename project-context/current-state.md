@@ -66,6 +66,34 @@
 - Waits for gateway health on startup
 - Configurable poll interval via `CLAWS_WORKER_POLL_MS`
 
+### CLI / local install architecture (operator-grade)
+- `@claws-so/cli` (`packages/cli`): Operator-grade CLI with `setup`, `onboard`, `doctor`, `status`, `dashboard`, `gateway`, `chat` commands
+- `@claws-so/create` (`packages/create`): Bootstrap CLI with logo, spinners, guided flow (`npx @claws-so/create`)
+- Claws home directory model: `~/.claws/claws.json`, `~/.claws/workspace/`, `~/.claws/runtime/`, `~/.claws/logs/`
+- Config resolver with env overrides: `CLAWS_HOME`, `CLAWS_STATE_DIR`, `CLAWS_CONFIG_PATH`, `CLAWS_WORKSPACE_DIR`
+- **Doctor** (8 diagnostic categories): Config (parse, version, onboarding), Filesystem (home + 9 workspace files), Runtime (PGlite, gateway runtime data), Services (gateway, dashboard, port conflicts), Environment (AI provider multi-key detection, model, gateway routing), Execution (browser, sandbox from gateway), Integrations (Telegram, Vercel, Slack). Health score bar (0–100%), pass/warn/fail counts, targeted fix suggestions. `--verbose` for extra detail.
+- **Status** (compact operator summary): Local config, parallel gateway probes, runtime data (mode, AI, execution, workflows, approvals, traces, tenants, agents, tools), proactive jobs + last decision, concise service status.
+- **Per-command --help**: `claws <cmd> --help` for all commands; categorized help output; SUBHELP registry with usage, descriptions, and flags.
+- **Port conflict detection**: TCP probes for gateway/dashboard ports; detect already-running services; clean error + fix hints.
+- **Onboard resume detection**: Detect partial onboard (resume message), completed onboard (skip + show config), `--force` to re-run.
+- **Probe module** (`probe.mjs`): Reusable TCP port check, HTTP fetch with timeout, gateway/dashboard URL resolution.
+- Polished onboarding wizard: 6-step interactive flow with welcome screen, step progress, conversational prompts, env detection, spinners, animated bootstrap, polished summary
+- Reusable messages module (`messages.mjs`): 60+ tasteful crustacean-personality status strings across 8 categories
+- UI module (`ui.mjs`): ᐳᐸ logo (big/small), spinner animation, stepProgress, section/step/success/warn/fail/kv/hr/hint formatters
+- Optional daemon install for macOS (launchd) and Linux (systemd)
+- Scoped package architecture: package names decoupled from binary names for future rename flexibility
+
+### TUI — Full-screen terminal UI
+- **`claws tui`**: First-class operator surface for terminal-native users
+- **6 panes**: Sessions, Live State, Approvals, Tasks, Traces, Workflows
+- **Architecture**: Zero-dependency ANSI renderer (`tui/ansi.mjs`), screen manager with alternate buffer (`tui/screen.mjs`), data layer with parallel API fetches (`tui/data.mjs`), pane renderers (`tui/panes.mjs`), app controller (`tui/app.mjs`)
+- **Layout**: Two-column on wide terminals (≥100 cols), single-pane with Tab switching on narrow
+- **Keyboard shortcuts**: Tab/Shift+Tab (cycle panes), j/k/↑/↓ (scroll), Enter (inspect detail), s/l/a/t/c/w (jump to pane), y/n/Y/A (approval actions), r (refresh), ? (help overlay), q/Ctrl+C (quit)
+- **Data**: Parallel batch fetch of all gateway API endpoints (sessions, approvals, tasks, traces, workflows, proactive jobs, decisions, notifications, status). 10-second auto-refresh.
+- **Detail views**: Session detail shows message history; Trace detail shows kind, metadata, and JSON data dump
+- **Pre-flight check**: Verifies gateway is reachable before entering alt screen
+- **Coherence**: Shared vocabulary module (`vocab.mjs`) ensures consistent section names, status categories, time formatting, and approval labels across CLI commands and TUI panes. All subcommand help includes "See also" cross-references. Help includes workflow guidance (`setup → onboard → doctor → status → tui`).
+
 ### Demo artifact system
 - `packages/tools/src/demo.ts`: Saves screenshots and metadata to `assets/demos/YYYY-MM-DD/`
 - Registered in tool system and AI SDK schemas
@@ -104,9 +132,9 @@ pnpm dev        # starts gateway (4317), dashboard (4318), worker
 
 ## System readiness score (0–100%)
 
-**~62%** — Based on PRD completeness.
+**~73%** — Based on PRD completeness.
 
-- **Delivered:** Workspace scaffold, gateway, dashboard, session workbench, chat streaming, approvals, traces, workflows, PGlite persistence, conversations/channels, intelligence, proactivity (schema + API + UI + slash + on-demand), browser (Playwright), execution substrates visibility, multi-tenant scaffold, CLI/create-claws, harness tests.
+- **Delivered:** Workspace scaffold, gateway, dashboard, session workbench, chat streaming, approvals, traces, workflows, PGlite persistence, conversations/channels, intelligence, proactivity (schema + API + UI + slash + on-demand + decision engine), browser (Playwright), execution substrates visibility, multi-tenant scaffold, operator-grade CLI (doctor/status/per-command --help/port conflict/onboard resume), TUI (full-screen terminal UI with 6 panes, keyboard-first navigation, parallel API fetches, approval actions, detail views, auto-refresh), CLI/TUI coherence (shared vocabulary, consistent terminology, cross-references, workflow guidance), create-claws bootstrap, Claws home directory model, guided onboarding wizard, scoped package architecture (@claws-so/cli, @claws-so/create), harness tests.
 - **Partial:** Session persistence (client-sent history only), tasks (read-only tasks.md), memory (no MEMORY.md write), view lens (not applied to queries), streaming (tool events only at end), Agent Browser (adapter only), multi-tenant (in-memory).
 - **Missing:** FOLDER.md governance, tasks.md write path, project drill-in, toast/live updates, proactivity scheduler, Agent Browser execution, Vercel Sandbox, mobile sidecar, create workflow from UI.
 

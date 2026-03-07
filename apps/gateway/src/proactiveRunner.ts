@@ -1,23 +1,16 @@
 /**
  * Proactive job runner: runs a single job by id (on-demand or from scheduler).
- * Stub handlers for built-in jobs produce notifications and traces; full AI synthesis can be added later.
+ * All proactive output flows through the Decision Engine; handlers return raw results + suggested notification.
  */
 import { randomUUID } from "node:crypto";
 import type { ScheduledJob, ProactiveNotification } from "@claws/shared/types";
 import type { ApprovalItem } from "@claws/shared/types";
+import { runProactivityDecisionEngine, type HandlerResult, type DecisionEngineDeps } from "./proactivityDecisionEngine.js";
 
 export type RunProactiveJobDeps = {
   insertTrace: (item: { id?: string; ts: number; type: string; agentId: string; summary: string; data?: Record<string, unknown> }, sessionId?: string) => Promise<void>;
   listPendingApprovals: () => Promise<ApprovalItem[]>;
-  dbCreateProactiveNotification: (params: {
-    jobId?: string | null;
-    executionId?: string | null;
-    kind: ProactiveNotification["kind"];
-    title: string;
-    body: string;
-    conversationId?: string | null;
-    sessionChatId?: string | null;
-  }) => Promise<ProactiveNotification>;
+  dbCreateProactiveNotification: DecisionEngineDeps["createProactiveNotification"];
   dbCreateJobExecution: (jobId: string) => Promise<{ id: string; jobId: string; startedAt: number; status: string }>;
   dbUpdateJobExecution: (executionId: string, update: { status: "completed" | "failed"; summary?: string; result?: Record<string, unknown>; error?: string; modelUsed?: string }) => Promise<void>;
   dbUpdateScheduledJobLastRun: (jobId: string, lastRunAt: number) => Promise<void>;
@@ -44,10 +37,36 @@ export async function runProactiveJob(
       modelUsed: result.modelUsed,
     });
     await deps.dbUpdateScheduledJobLastRun(jobId, startedAt);
+
+    const decisionResult = await runProactivityDecisionEngine(job, execution.id, result, {
+      createProactiveNotification: deps.dbCreateProactiveNotification,
+    });
+
+    await deps.insertTrace(
+      {
+        id: randomUUID(),
+        ts: Date.now(),
+        type: "proactive-decision",
+        agentId: "system",
+        summary: `${decisionResult.outcome}: ${decisionResult.rationale}`,
+        data: {
+          jobId: job.id,
+          executionId: execution.id,
+          triggerEventId: decisionResult.triggerEventId,
+          decisionId: decisionResult.decisionId,
+          outcome: decisionResult.outcome,
+          owner: decisionResult.owner,
+          notificationId: decisionResult.notification?.id,
+          workItemId: decisionResult.workItem?.id,
+        },
+      },
+      undefined
+    );
+
     return {
       executionId: execution.id,
       summary: result.summary,
-      notification: result.notification,
+      notification: decisionResult.notification,
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -65,12 +84,7 @@ async function runHandler(
   job: ScheduledJob,
   executionId: string,
   deps: RunProactiveJobDeps
-): Promise<{
-  summary: string;
-  result?: Record<string, unknown>;
-  modelUsed?: string;
-  notification?: ProactiveNotification;
-}> {
+): Promise<HandlerResult> {
   const nameLower = job.name.toLowerCase();
   const isMorningBrief = nameLower.includes("morning") || (job.config?.type as string) === "morning-brief";
   const isMidday = nameLower.includes("midday") || (job.config?.type as string) === "midday-report";
@@ -82,91 +96,40 @@ async function runHandler(
     const pending = await deps.listPendingApprovals();
     const count = pending.length;
     const summary = count === 0 ? "No pending approvals." : `${count} approval(s) pending.`;
-    let notification: ProactiveNotification | undefined;
-    if (count > 0) {
-      notification = await deps.dbCreateProactiveNotification({
-        jobId: job.id,
-        executionId,
-        kind: "inform",
-        title: "Approvals waiting",
-        body: `${count} approval(s) need your attention.`,
-        conversationId: job.conversationId ?? undefined,
-      });
-    }
-    await deps.insertTrace(
-      {
-        id: randomUUID(),
-        ts: Date.now(),
-        type: "proactive-run",
-        agentId: "system",
-        summary: `Approvals watchdog: ${summary}`,
-        data: { jobId: job.id, executionId, pendingCount: count },
-      },
-      undefined
-    );
-    return { summary, result: { pendingCount: count }, modelUsed: "none", notification };
+    return {
+      summary,
+      result: { pendingCount: count },
+      modelUsed: "none",
+      suggestedNotification:
+        count > 0
+          ? { kind: "inform", title: "Approvals waiting", body: `${count} approval(s) need your attention.` }
+          : undefined,
+    };
   }
 
   if (isMorningBrief || isMidday || isEod) {
     const label = isMorningBrief ? "Morning brief" : isMidday ? "Midday report" : "End of day report";
     const summary = `${label} ran (stub). Add AI synthesis to generate real content.`;
-    const notification = await deps.dbCreateProactiveNotification({
-      jobId: job.id,
-      executionId,
-      kind: "inform",
-      title: label,
-      body: summary,
-      conversationId: job.conversationId ?? undefined,
-    });
-    await deps.insertTrace(
-      {
-        id: randomUUID(),
-        ts: Date.now(),
-        type: "proactive-run",
-        agentId: "system",
-        summary,
-        data: { jobId: job.id, executionId, kind: job.kind },
-      },
-      undefined
-    );
-    return { summary, result: { stub: true }, modelUsed: "cheap", notification };
+    return {
+      summary,
+      result: { stub: true },
+      modelUsed: "cheap",
+      suggestedNotification: { kind: "inform", title: label, body: summary },
+    };
   }
 
   if (isStaleProject) {
     const summary = "Stale project watchdog ran (stub). Add project activity scan for real detection.";
-    const notification = await deps.dbCreateProactiveNotification({
-      jobId: job.id,
-      executionId,
-      kind: "inform",
-      title: "Stale project check",
-      body: summary,
-      conversationId: job.conversationId ?? undefined,
-    });
-    await deps.insertTrace(
-      {
-        id: randomUUID(),
-        ts: Date.now(),
-        type: "proactive-run",
-        agentId: "system",
-        summary,
-        data: { jobId: job.id, executionId, kind: job.kind, projectSlug: job.projectSlug },
-      },
-      undefined
-    );
-    return { summary, result: { stub: true }, modelUsed: "cheap", notification };
+    return {
+      summary,
+      result: { stub: true },
+      modelUsed: "cheap",
+      suggestedNotification: { kind: "inform", title: "Stale project check", body: summary },
+    };
   }
 
-  const summary = `Proactive job "${job.name}" ran (generic stub).`;
-  await deps.insertTrace(
-    {
-      id: randomUUID(),
-      ts: Date.now(),
-      type: "proactive-run",
-      agentId: "system",
-      summary,
-      data: { jobId: job.id, executionId, kind: job.kind },
-    },
-    undefined
-  );
-  return { summary, result: { stub: true } };
+  return {
+    summary: `Proactive job "${job.name}" ran (generic stub).`,
+    result: { stub: true },
+  };
 }

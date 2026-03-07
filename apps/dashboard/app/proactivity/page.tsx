@@ -10,6 +10,7 @@ import {
   getProactiveJobs,
   getProactiveNotifications,
   getProactiveRuns,
+  getProactiveDecisions,
   pauseProactiveJob,
   resumeProactiveJob,
   runProactiveJobNow,
@@ -17,12 +18,14 @@ import {
   type ProactiveJob,
   type ProactiveNotification,
   type ProactiveRun,
+  type AttentionDecision,
 } from "../../lib/api";
 
 export default function ProactivityPage() {
   const [jobs, setJobs] = useState<ProactiveJob[]>([]);
   const [notifications, setNotifications] = useState<ProactiveNotification[]>([]);
   const [runs, setRuns] = useState<ProactiveRun[]>([]);
+  const [decisions, setDecisions] = useState<AttentionDecision[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [runningId, setRunningId] = useState<string | null>(null);
@@ -30,14 +33,16 @@ export default function ProactivityPage() {
 
   async function load() {
     try {
-      const [jobsRes, notifRes, runsRes] = await Promise.all([
+      const [jobsRes, notifRes, runsRes, decisionsRes] = await Promise.all([
         getProactiveJobs(),
         getProactiveNotifications({ limit: 30 }),
         getProactiveRuns(undefined, 30),
+        getProactiveDecisions(30, 0),
       ]);
       setJobs(jobsRes.jobs ?? []);
       setNotifications(notifRes.notifications ?? []);
       setRuns(runsRes.runs ?? []);
+      setDecisions(decisionsRes.decisions ?? []);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -98,6 +103,7 @@ export default function ProactivityPage() {
                 Notifications {unreadCount > 0 ? `(${unreadCount})` : ""}
               </TabsTrigger>
               <TabsTrigger value="runs">Recent runs</TabsTrigger>
+              <TabsTrigger value="decisions">Decisions ({decisions.length})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="jobs">
@@ -238,6 +244,38 @@ export default function ProactivityPage() {
                       {r.error ? (
                         <div className="text-[12px] text-destructive mt-1">{r.error}</div>
                       ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="decisions">
+              <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground mb-4">
+                Every proactive trigger goes through the decision engine: trigger → evaluation → decision (ignore, bundle, notify, act_silently, delegate, escalate) → audit.
+              </div>
+              <div className="space-y-2">
+                {decisions.length === 0 ? (
+                  <EmptyState
+                    icon={<History size={28} strokeWidth={1.2} />}
+                    title="No decisions yet"
+                    description="Run a proactive job to see trigger and decision history."
+                  />
+                ) : (
+                  decisions.map((d) => (
+                    <div key={d.id} className="rounded-lg border border-border bg-surface-1 px-4 py-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-[13px] font-medium">{d.outcome}</div>
+                          <div className="text-[12px] text-muted-foreground">{d.rationale}</div>
+                          <div className="text-[11px] text-muted-foreground/80 mt-1">
+                            {new Date(d.createdAt).toLocaleString()} · {d.owner}
+                            {d.notificationId ? " · notification" : ""}
+                            {d.workItemId ? " · work item" : ""}
+                          </div>
+                        </div>
+                        <Badge variant="outline" className="text-[10px]">{d.outcome}</Badge>
+                      </div>
                     </div>
                   ))
                 )}

@@ -66,6 +66,9 @@ import {
   markProactiveNotificationRead as dbMarkProactiveNotificationRead,
   seedModelPolicies as dbSeedModelPolicies,
   seedBuiltInProactiveJobs as dbSeedBuiltInProactiveJobs,
+  listTriggerEvents as dbListTriggerEvents,
+  listAttentionDecisions as dbListAttentionDecisions,
+  getAttentionBudgetConfig as dbGetAttentionBudgetConfig,
   upsertConversationIntelligence,
   getIntelligenceBySession,
   getIntelligenceByConversation,
@@ -739,6 +742,9 @@ async function main() {
     listProactiveNotifications: (opts) => dbListProactiveNotifications(opts),
     listProactiveRuns: (jobId, limit) => dbListJobExecutions(jobId, limit ?? 50),
     markProactiveNotificationRead: (id) => dbMarkProactiveNotificationRead(id),
+    listTriggerEvents: (limit, offset) => dbListTriggerEvents(limit ?? 50, offset ?? 0),
+    listAttentionDecisions: (limit, offset) => dbListAttentionDecisions(limit ?? 50, offset ?? 0),
+    getAttentionBudgetConfig: () => dbGetAttentionBudgetConfig(),
     scanProjects: async () => {
       const projectsDir = path.join(workspaceRoot, "projects");
       if (!existsSync(projectsDir)) return [];

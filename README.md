@@ -15,7 +15,9 @@ Claws is not an OpenClaw fork. It is a clean-room implementation inspired by Ope
 - Next.js dashboard with Geist fonts, Tailwind CSS, shadcn/ui components, and Lucide icons
 - Pages: Chat (streaming), Tasks, Projects, Files, Memory, Agents, Workflows, Approvals, Traces, Settings
 - Deterministic workspace template scaffold under `templates/base/workspace`
-- CLI commands for `start`, `chat`, `init`, and `doctor`
+- CLI with `setup`, `onboard`, `doctor`, `status`, `tui`, `dashboard`, `gateway`, `chat` commands
+- Scoped packages: `@claws-so/cli` (full CLI) and `@claws-so/create` (bootstrap)
+- Claws home directory model (`~/.claws/`) with config, workspace, runtime, logs
 - Browser tool with Playwright-backed local execution and optional Agent Browser adapter
 - Persistent workflow engine with pause/resume/approval checkpoints (survives restarts) plus worker-driven tool execution
 - Tenant routing middleware for future multi-tenant hosted deployment
@@ -60,13 +62,95 @@ Claws is not an OpenClaw fork. It is a clean-room implementation inspired by Ope
 - Dashboard port: `4318`
 - Dashboard -> gateway URL: `http://localhost:4317`
 
-## Quick start
+## Install
+
+Two install paths:
+
+### Path 1 — Bootstrap (recommended)
 
 ```bash
+npx @claws-so/create
+```
+
+This creates `~/.claws/` with workspace, config, and runtime directories.
+Then install the full CLI:
+
+```bash
+npm install -g @claws-so/cli
+claws onboard
+```
+
+### Path 2 — From source (development)
+
+```bash
+git clone <repo>
+cd claws
 cp .env.example .env.local
 pnpm install
 pnpm dev
 ```
+
+### Claws home directory
+
+```text
+~/.claws/
+  claws.json        # user config
+  workspace/        # canonical workspace files
+  runtime/          # PGlite + runtime state
+  logs/             # log files
+```
+
+Environment overrides:
+- `CLAWS_HOME` — override `~/.claws`
+- `CLAWS_STATE_DIR` — override runtime directory
+- `CLAWS_CONFIG_PATH` — override config file path
+- `CLAWS_WORKSPACE_DIR` — override workspace directory
+
+## CLI
+
+```
+ᐳᐸ Claws
+
+  Usage
+    claws <command> [options]
+
+  Getting started
+    setup           Initialize home directory and config
+    onboard         Guided onboarding wizard
+
+  Operate
+    tui             Full-screen operator dashboard (keyboard-first)
+    status          Quick runtime summary
+    doctor          Comprehensive health check
+
+  Services
+    gateway         Start the gateway server
+    dashboard       Open the browser dashboard
+
+  Interact
+    chat <message>  Send a message to the gateway
+
+  Options
+    --help, -h      Show help (use claws <cmd> --help for details)
+    --version, -v   Print version
+
+  Workflow
+    setup → onboard → doctor → status → tui
+```
+
+Per-command help is available via `claws <command> --help`. Every subcommand includes a "See also" section pointing to related commands.
+
+**Typical workflow:** `setup` → `onboard` → `doctor` → `status` → `tui`
+
+**TUI** (`claws tui`) is the primary operator surface. Full-screen, keyboard-first terminal UI with six panes — Sessions, Live State, Approvals, Tasks, Traces, and Workflows — plus keyboard navigation (Tab to cycle, j/k to scroll, Enter to inspect, y/n to approve/deny). Requires a running gateway. Auto-refreshes every 10 seconds. Two-column layout on wide terminals, single-pane on narrow. Press `?` for all keyboard shortcuts.
+
+**Doctor** (`claws doctor`) runs a comprehensive diagnostic across config, filesystem, runtime, services, ports, environment, execution, and integrations. Produces a health score with a visual bar, pass/warn/fail counts, and targeted fix suggestions.
+
+**Status** (`claws status`) is a quick operator summary that probes the gateway for runtime counts (workflows, approvals, traces, agents, tools), proactive job status, AI provider configuration, and execution substrates.
+
+**Onboard** (`claws onboard`) is a guided wizard covering identity, workspace, approval mode, views, AI model, channels, and optional daemon install. Detects existing setups (resume if partial, skip if already completed), and uses `--yes` for non-interactive mode.
+
+**Gateway** and **Dashboard** commands detect port conflicts, check if services are already running, and provide clean failure messages with fix hints. Both include cross-references to `claws tui` as the terminal alternative.
 
 Open:
 - Dashboard: [http://localhost:4318](http://localhost:4318)
@@ -121,8 +205,12 @@ pnpm worker
 pnpm typecheck
 pnpm test
 
-# CLI helpers
+# CLI (from repo root)
 pnpm claws --help
+pnpm claws setup
+pnpm claws onboard --yes --name "Builder" --workspace "Life OS"
+pnpm claws doctor
+pnpm claws status
 pnpm claws chat "status"
 pnpm create-claws --yes --name "Builder" --workspace "Life OS"
 ```
@@ -156,7 +244,8 @@ apps/
   worker/     # background worker stub
 packages/
   agents/     # orchestrator/founder/developer definitions
-  cli/        # claws + create-claws commands
+  cli/        # @claws-so/cli — full CLI (setup/onboard/doctor/status/tui/gateway/dashboard/chat)
+  create/     # @claws-so/create — bootstrap CLI (npx @claws-so/create)
   core/       # router, approvals, runner, workflow engine
   harness/    # smoke/golden/replay/security harness
   shared/     # shared types (workflow, browser, multi-tenant)

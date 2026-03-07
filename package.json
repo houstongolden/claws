@@ -14,11 +14,11 @@
     "dashboard": "pnpm --filter @claws/dashboard dev",
     "worker": "pnpm --filter @claws/worker dev",
     "claws": "node ./packages/cli/bin/claws.mjs",
-    "create-claws": "node ./packages/cli/bin/claws.mjs init"
+    "create-claws": "node ./packages/create/bin/create-claws.mjs"
   },
   "bin": {
     "claws": "./packages/cli/bin/claws.mjs",
-    "create-claws": "./packages/cli/bin/claws.mjs"
+    "create-claws": "./packages/create/bin/create-claws.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

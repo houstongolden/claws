@@ -330,3 +330,100 @@ export interface ProactiveNotification {
   readAt?: number | null;
   createdAt: number;
 }
+
+// ---------------------------------------------------------------------------
+// Proactivity Decision Engine (trigger → evaluation → decision → work/notify → audit)
+// ---------------------------------------------------------------------------
+
+export type AttentionDecisionOutcome =
+  | "ignore"
+  | "bundle"
+  | "notify"
+  | "act_silently"
+  | "delegate"
+  | "escalate";
+
+export type ProactiveOwner =
+  | "orchestrator"
+  | "project_agent"
+  | "specialist_agent"
+  | "waiting_on_user"
+  | "completed"
+  | "snoozed";
+
+export interface TriggerEvent {
+  id: string;
+  jobId: string;
+  executionId: string;
+  kind: ProactiveJobKind;
+  jobName: string;
+  payload: Record<string, unknown>;
+  conversationId?: string | null;
+  projectSlug?: string | null;
+  sessionChatId?: string | null;
+  createdAt: number;
+}
+
+export interface AttentionCandidate {
+  id: string;
+  triggerEventId: string;
+  jobId: string;
+  executionId: string;
+  reason: string;
+  suggestedUrgency: "low" | "normal" | "high" | "urgent";
+  dedupeKey: string;
+  alreadyDone?: string;
+  needsAttention?: string;
+  nextStep?: string;
+  createdAt: number;
+}
+
+export interface AttentionDecision {
+  id: string;
+  candidateId: string;
+  triggerEventId: string;
+  outcome: AttentionDecisionOutcome;
+  rationale: string;
+  owner: ProactiveOwner;
+  notificationId?: string | null;
+  workItemId?: string | null;
+  criteria: Record<string, unknown>;
+  createdAt: number;
+}
+
+export interface WorkItem {
+  id: string;
+  decisionId: string;
+  candidateId: string;
+  triggerEventId: string;
+  jobId: string;
+  kind: string;
+  title: string;
+  summary?: string;
+  owner: ProactiveOwner;
+  status: "pending" | "in_progress" | "completed" | "cancelled";
+  conversationId?: string | null;
+  projectSlug?: string | null;
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number | null;
+}
+
+export interface InitiativeArtifact {
+  id: string;
+  decisionId?: string | null;
+  workItemId?: string | null;
+  kind: string;
+  title: string;
+  ref: string;
+  summary?: string;
+  createdAt: number;
+}
+
+export interface AttentionBudgetConfig {
+  maxProactiveMessagesPerDay: number;
+  quietHours?: [number, number] | null;
+  bundleRelated: boolean;
+  minMinutesBetweenSameTypeNudge: number;
+  preferSilentProgress: boolean;
+}

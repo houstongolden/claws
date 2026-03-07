@@ -100,8 +100,25 @@ Organized by category. Each feature has **Status** (complete | partial | placeho
 | **WorkspaceFS (path enforcement)** | partial | **files:** packages/workspace/workspace-fs.ts. **runtime:** Allowed roots enforced; fs.read/write/list/append through WorkspaceFS. **issues:** Allowed roots **hardcoded**, not from FOLDER.md. PRD: "FOLDER.md defines allowed roots". |
 | **FOLDER.md governance** | missing | **files:** Not parsed. **runtime:** No load or enforce from FOLDER.md. **issues:** Top audit gap. |
 | **Identity loader** | complete | **files:** gateway main, memory.ts. **runtime:** identity/you.md loaded; identity/private excluded. |
-| **create-claws / claws init** | complete | **files:** packages/cli, templates/base/workspace. **runtime:** npx create-claws, claws init; onboarding state machine. |
-| **claws start / claws chat** | complete | **files:** apps/gateway/cli.ts. **runtime:** CLI starts gateway; chat events. |
+| **create-claws / claws init** | complete | **files:** packages/cli, packages/create, templates/base/workspace. **runtime:** npx @claws-so/create, claws init; onboarding state machine. |
+| **claws start / claws chat** | complete | **files:** apps/gateway/cli.ts, packages/cli/src/commands/chat.mjs. **runtime:** CLI starts gateway; chat events. |
+| **Claws home directory (~/.claws/)** | complete | **files:** packages/cli/src/paths.mjs, packages/cli/src/config.mjs. **runtime:** claws.json, workspace/, runtime/, logs/; env overrides for all paths. |
+| **CLI command suite (setup/onboard/doctor/status/dashboard/gateway)** | complete | **files:** packages/cli/src/commands/\*. **runtime:** All commands operational with spinners, ᐳᐸ logo, colored output, step progress, --help, --version. |
+| **Guided onboarding wizard** | complete | **files:** packages/cli/src/commands/onboard.mjs. **runtime:** Welcome screen with big logo; 6-step interactive wizard with [n/6] progress; env detection; spinners; conversational prompts; --yes non-interactive; --install-daemon for launchd/systemd. |
+| **@claws-so/create bootstrap** | complete | **files:** packages/create/\*. **runtime:** npx @claws-so/create with full logo, spinners, welcome greeting, workspace bootstrap, polished summary with install-then-onboard flow. |
+| **Scoped package architecture** | complete | **files:** packages/cli (@claws-so/cli), packages/create (@claws-so/create). **runtime:** Package names decoupled from binary; rename-safe. |
+| **CLI copy/messages module** | complete | **files:** packages/cli/src/messages.mjs. **runtime:** 60+ tasteful status strings across 8 categories (boot, setup, check, working, done, welcome, oops, misc); pick() and rand() helpers for deterministic and random selection. |
+| **CLI UI polish (spinners, logo, formatting)** | complete | **files:** packages/cli/src/ui.mjs. **runtime:** ᐳᐸ logo (big and small); spinner with frame animation; stepProgress [n/m]; kv, hr, hint, cmd, dot formatters; section/step/success/warn/fail layout. |
+| **Doctor comprehensive diagnostic** | complete | **files:** packages/cli/src/commands/doctor.mjs, packages/cli/src/probe.mjs. **runtime:** 8 diagnostic categories: Config (parse, version, onboarding), Filesystem (home, workspace, 9 workspace files), Runtime (PGlite, gateway runtime data), Services (gateway, dashboard, port conflict detection), Environment (AI provider multi-key, model, gateway routing), Execution (browser, sandbox), Integrations (Telegram, Vercel, Slack). Parallel TCP+HTTP probes. Health score bar (0–100%). Pass/warn/fail counts. Targeted fix suggestions. --verbose flag. |
+| **Status compact operator summary** | complete | **files:** packages/cli/src/commands/status.mjs. **runtime:** Local config display, parallel gateway probes, runtime data (mode, AI config, execution, workflows, approvals, traces, tenants, agents, tools), proactive job status with last decision time, concise service status. |
+| **Per-command --help** | complete | **files:** packages/cli/src/commands/help.mjs, packages/cli/bin/claws.mjs. **runtime:** `claws <cmd> --help` for all commands; grouped help output (Getting started, Operate, Interact); SUBHELP registry with usage, descriptions, and flags per command. |
+| **Port conflict and service detection** | complete | **files:** packages/cli/src/probe.mjs, gateway.mjs, dashboard.mjs. **runtime:** TCP port probes; detect port in use by another process; detect already-running services; clean error + fix hints for conflicts. |
+| **Onboard resume detection** | complete | **files:** packages/cli/src/commands/onboard.mjs. **runtime:** Detects partial onboard (resume message), completed onboard (show config + skip), --force to re-run. |
+| **TUI full-screen terminal UI** | complete | **files:** packages/cli/src/tui/\*, packages/cli/src/commands/tui.mjs. **runtime:** `claws tui` launches full-screen TUI with 6 panes (Sessions, Live State, Approvals, Tasks, Traces, Workflows/Jobs). Zero-dependency ANSI renderer with alternate screen buffer. Keyboard-first: Tab cycle, j/k scroll, Enter inspect, y/n/Y/A approval actions, ? help, q quit. Parallel gateway API fetches via data layer. Two-column layout (wide) / single-pane (narrow). 10s auto-refresh. Session detail with message history. Trace detail with data dump. Pre-flight gateway health check. |
+| **TUI data layer** | complete | **files:** packages/cli/src/tui/data.mjs. **runtime:** Parallel fetchAll() for sessions, approvals, tasks, traces, workflows, jobs, decisions, notifications. Reuses probe.mjs gateway URL resolution. Individual fetch functions for each API endpoint. |
+| **TUI ANSI screen renderer** | complete | **files:** packages/cli/src/tui/ansi.mjs, packages/cli/src/tui/screen.mjs. **runtime:** Low-level ANSI escapes, box drawing, styled text, truncation, alt screen buffer, cursor management, buffered writes, resize handling. |
+| **CLI/TUI shared vocabulary** | complete | **files:** packages/cli/src/vocab.mjs. **runtime:** Shared section names, status categories, time formatting, approval labels, service labels. Used by doctor, status, TUI panes, TUI app controller. |
+| **CLI/TUI coherence & cross-references** | complete | **files:** All command help files, TUI panes, help.mjs, README. **runtime:** "See also" on every subcommand; workflow guidance in help; consistent terminology across all surfaces; per-command help with keyboard shortcuts for TUI. |
 
 ---
 
@@ -121,7 +138,7 @@ Organized by category. Each feature has **Status** (complete | partial | placeho
 
 | Status | Count (by feature rows above) |
 |--------|-------------------------------|
-| complete | 38 |
+| complete | 56 |
 | partial | 18 |
 | placeholder | 3 |
 | missing | 12 |

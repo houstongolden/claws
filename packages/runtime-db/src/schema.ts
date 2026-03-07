@@ -336,3 +336,99 @@ CREATE INDEX IF NOT EXISTS idx_proactive_notifications_created ON proactive_noti
 CREATE INDEX IF NOT EXISTS idx_proactive_notifications_read ON proactive_notifications(read_at);
 CREATE INDEX IF NOT EXISTS idx_proactive_notifications_conversation ON proactive_notifications(conversation_id);
 `;
+
+// Proactivity Decision Engine: trigger_events, attention_candidates, attention_decisions, work_items, initiative_artifacts, attention_budget
+export const DECISION_ENGINE_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS trigger_events (
+  id TEXT PRIMARY KEY,
+  job_id TEXT NOT NULL,
+  execution_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  job_name TEXT NOT NULL,
+  payload JSONB DEFAULT '{}',
+  conversation_id TEXT,
+  project_slug TEXT,
+  session_chat_id TEXT,
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_trigger_events_job ON trigger_events(job_id);
+CREATE INDEX IF NOT EXISTS idx_trigger_events_created ON trigger_events(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS attention_candidates (
+  id TEXT PRIMARY KEY,
+  trigger_event_id TEXT NOT NULL,
+  job_id TEXT NOT NULL,
+  execution_id TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  suggested_urgency TEXT NOT NULL CHECK (suggested_urgency IN ('low', 'normal', 'high', 'urgent')),
+  dedupe_key TEXT NOT NULL,
+  already_done TEXT,
+  needs_attention TEXT,
+  next_step TEXT,
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attention_candidates_trigger ON attention_candidates(trigger_event_id);
+CREATE INDEX IF NOT EXISTS idx_attention_candidates_dedupe ON attention_candidates(dedupe_key, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS attention_decisions (
+  id TEXT PRIMARY KEY,
+  candidate_id TEXT NOT NULL,
+  trigger_event_id TEXT NOT NULL,
+  outcome TEXT NOT NULL CHECK (outcome IN ('ignore', 'bundle', 'notify', 'act_silently', 'delegate', 'escalate')),
+  rationale TEXT NOT NULL,
+  owner TEXT NOT NULL CHECK (owner IN ('orchestrator', 'project_agent', 'specialist_agent', 'waiting_on_user', 'completed', 'snoozed')),
+  notification_id TEXT,
+  work_item_id TEXT,
+  criteria JSONB DEFAULT '{}',
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_attention_decisions_candidate ON attention_decisions(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_attention_decisions_created ON attention_decisions(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS work_items (
+  id TEXT PRIMARY KEY,
+  decision_id TEXT NOT NULL,
+  candidate_id TEXT NOT NULL,
+  trigger_event_id TEXT NOT NULL,
+  job_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT,
+  owner TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+  conversation_id TEXT,
+  project_slug TEXT,
+  created_at BIGINT NOT NULL,
+  updated_at BIGINT NOT NULL,
+  completed_at BIGINT
+);
+CREATE INDEX IF NOT EXISTS idx_work_items_job ON work_items(job_id);
+CREATE INDEX IF NOT EXISTS idx_work_items_status ON work_items(status);
+CREATE INDEX IF NOT EXISTS idx_work_items_created ON work_items(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS initiative_artifacts (
+  id TEXT PRIMARY KEY,
+  decision_id TEXT,
+  work_item_id TEXT,
+  kind TEXT NOT NULL,
+  title TEXT NOT NULL,
+  ref TEXT NOT NULL,
+  summary TEXT,
+  created_at BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_initiative_artifacts_created ON initiative_artifacts(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS attention_budget (
+  id TEXT PRIMARY KEY,
+  max_proactive_messages_per_day INTEGER NOT NULL DEFAULT 20,
+  quiet_hours_start INTEGER,
+  quiet_hours_end INTEGER,
+  bundle_related BOOLEAN NOT NULL DEFAULT TRUE,
+  min_minutes_between_same_type_nudge INTEGER NOT NULL DEFAULT 60,
+  prefer_silent_progress BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at BIGINT NOT NULL
+);
+INSERT INTO attention_budget (id, max_proactive_messages_per_day, bundle_related, min_minutes_between_same_type_nudge, prefer_silent_progress, updated_at)
+VALUES ('default', 20, TRUE, 60, TRUE, 0)
+ON CONFLICT (id) DO NOTHING;
+`;

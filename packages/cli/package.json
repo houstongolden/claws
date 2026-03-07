@@ -1,14 +1,25 @@
 {
-  "name": "@claws/cli",
+  "name": "@claws-so/cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "Claws AI OS — CLI",
+  "bin": {
+    "claws": "./bin/claws.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates"
+  ],
   "scripts": {
     "dev": "node ./bin/claws.mjs --help",
     "build": "echo no-build",
     "typecheck": "echo no-typecheck",
     "lint": "echo lint cli",
-    "test": "echo test cli",
+    "test": "node ./bin/claws.mjs --help",
     "clean": "echo clean cli"
-  }
+  },
+  "keywords": ["claws", "ai", "os", "cli"],
+  "license": "MIT"
 }
