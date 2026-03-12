@@ -44,6 +44,12 @@ export default function ProjectsPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener("claws:refresh-context", handler);
+    return () => window.removeEventListener("claws:refresh-context", handler);
+  }, []);
+
   return (
     <Shell>
       <PageHeader

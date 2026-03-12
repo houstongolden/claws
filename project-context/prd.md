@@ -5,7 +5,7 @@
 Claws.so is a local-first, markdown-native agent OS for builders who live in Next.js and love Vercel. It is chat-first, multi-agent capable, filesystem-governed, and designed to stay usable offline with optional cloud sync.
 
 ### Core philosophy
-- Local-first canonical truth
+- **Local-first by architecture, portable by design** — workspace contract and runtime model work offline, on disk, under user control first; cloud sync and hosted runtimes layer on top. In hosted environments, the same workspace contract and runtime model are preserved through explicit sync and managed storage rather than abandoning the local-first model.
 - Vercel-native defaults (AI SDK, AI Gateway, Skills, Sandbox, Queues)
 - Chat-first UX with CLI/TUI parity
 - Filesystem governance via `FOLDER.md`
@@ -14,6 +14,16 @@ Claws.so is a local-first, markdown-native agent OS for builders who live in Nex
 - Smart approvals over constant prompts
 
 ## 2) Canonical Truth and Sync Model
+
+### Local-first (not local-only)
+- **Canonical workspace truth** = filesystem-shaped workspace contract and files.
+- **Local runtime state** = local runtime DB / local process state.
+- **Hosted mode** = cloud-hosted mirror or managed equivalent of that same workspace/runtime model.
+- **Sync** = explicit bridge, not a hidden architecture swap.
+
+When Claws is hosted, the product still thinks in local workspace concepts, portable files, explicit sync, and user-owned structure — even if the active runtime is remote.
+
+> Claws is local-first by architecture and portable by design. In hosted environments, the same workspace contract and runtime model are preserved through explicit sync and managed storage rather than abandoning the local-first model.
 
 ### Canonical source of truth
 - Workspace files on local disk are canonical.
@@ -272,16 +282,33 @@ Rollback behaviors:
 
 ## 11) v0 Magic Moments
 
-1. Delightful first-run onboarding with immediate usable workspace.
-2. Chat request lands as organized real files/tasks in workspace.
-3. Watch/record/background execution with demo artifact links.
-4. Durable "what did we decide?" answers with source-linked markdown context.
+Prioritize these four magic moments end-to-end before broad dashboard polish:
+
+1. **Install + onboarding feels magical** — Zero-to-running local agent OS in minutes; CLI/onboarding is confident, clear, and usable.
+2. **Working persistent session chat** — Session send/receive, persistence across reload/restart, no fake placeholder flow.
+3. **Agent visibly works** — Live state, tool streaming, approvals interrupt or gate actions; user sees tools and traces updating.
+4. **Proactive follow-up or scheduled brief** — Proves this is an AI OS, not a chat app (e.g. morning brief, watchdog, or scheduled job).
+
+**Strategy:** Magic moments first, polish second. Dashboard polish only where it directly improves these moments.
+
+### Functional definition of “working chat”
+
+A chat is only considered working if:
+- Dashboard boots
+- Gateway boots
+- Session can send/receive messages
+- Session persists across reload/restart
+- Tool events stream incrementally
+- Traces update correctly
+- Approvals interrupt or gate actions correctly
+
+Anything less remains partial/prototype-grade.
 
 ## 12) v0 Sequencing and Delivery Order
 
 1. Workspace scaffold + local gateway + in-app chat
 2. CLI/TUI chat + approvals + task operations
-3. Telegram adapter
+3. **Telegram adapter** — Validates channel mapping, proactive follow-up, thread scoping, and the conversation model beyond a single dashboard session; one of the first real-world operating surfaces.
 4. Browser tool + heartbeat
 5. Skills v0 + safe installs
 6. Queues + Sandbox integration
@@ -333,7 +360,16 @@ Rollback behaviors:
 
 Most recent implementation priorities:
 1. AI SDK integration for streaming chat and tool use
-2. Agent Browser integration for browser automation
-3. Workflow DevKit integration for durable execution
-4. Hosted deployment path with multi-tenant routing
-5. Dashboard polish with Geist design system consistency
+2. **Four magic moments** (install/onboarding, persistent session chat, agent live state/tool streaming/approvals, proactive follow-up) — implement and validate before broad dashboard polish
+3. Agent Browser integration for browser automation
+4. Workflow DevKit integration for durable execution
+5. Hosted deployment path with multi-tenant routing
+6. **Dashboard polish** — Only where it directly improves the four magic moments; demote broad beautification.
+
+### User target (wedge)
+
+- **Primary now:** Vercel-native builders and product-minded power users who want an AI OS that feels like a real product instead of a hacked-together side project (founders, devs, creators, operators, OpenClaw users wanting a better out-of-the-box system).
+- **Secondary later:** Hosted users via Hubify — deployable AI OS workspaces, cleaner UI, cloud/local sync, opinionated templates, eventually mobile/web access.
+- **Long-term platform:** Developers and teams who fork templates, deploy custom AI OS products, white-label or verticalize the runtime/workspace model.
+
+**Wedge:** Claws is the product-grade AI OS runtime for builders; Hubify is the platform for deploying and hosting AI OS workspaces.

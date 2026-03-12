@@ -13,7 +13,15 @@ const GATEWAY_URL =
  */
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    let body: { messages?: Array<{ content?: string }>; message?: string; stream?: boolean };
+    try {
+      body = (await req.json()) as typeof body;
+    } catch {
+      return NextResponse.json(
+        { ok: false, error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
     const message = body?.messages?.at(-1)?.content ?? body?.message;
     const stream = body?.stream === true;
 

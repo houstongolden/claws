@@ -1,6 +1,24 @@
+import dotenv from "dotenv";
 import { existsSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+
+// Load .env.local from workspace root (turbo runs from repo root)
+for (const name of [".env.local", ".env"]) {
+  const p = path.resolve(process.cwd(), name);
+  if (existsSync(p)) {
+    dotenv.config({ path: p });
+    break;
+  }
+}
+// Also try two levels up in case CWD is apps/gateway
+for (const name of [".env.local", ".env"]) {
+  const p = path.resolve(process.cwd(), "..", "..", name);
+  if (existsSync(p)) {
+    dotenv.config({ path: p, override: false });
+    break;
+  }
+}
 import { readFile, rm, readdir, appendFile, mkdir, writeFile } from "node:fs/promises";
 import { createDefaultAgents } from "@claws/agents/index";
 import { ApprovalStore } from "@claws/core/approvals";
@@ -10,6 +28,7 @@ import { createVercelWorkflowAdapter } from "@claws/core/workflow-vercel";
 import type { MessageEvent, Mode, TraceItem } from "@claws/shared/types";
 import {
   initRuntimeDb,
+  initRuntimeDbInMemory,
   getSession,
   getOrCreateSession,
   getSessionMessages,
@@ -155,7 +174,15 @@ async function main() {
   });
 
   const approvals = new ApprovalStore();
-  await initRuntimeDb({ workspaceRoot });
+  try {
+    await initRuntimeDb({ workspaceRoot });
+  } catch (err) {
+    console.warn(
+      "[gateway] Persistent runtime DB failed (PGLite/dataDir). Using in-memory DB. Data will not persist across restarts.",
+      err instanceof Error ? err.message : String(err)
+    );
+    await initRuntimeDbInMemory();
+  }
   await dbSeedModelPolicies();
   await dbSeedBuiltInProactiveJobs();
   const pendingFromDb = await listPendingApprovals();
@@ -194,8 +221,8 @@ async function main() {
     history?: ChatHistoryTurn[];
   }): Promise<ChatHistoryTurn[]> {
     const sessionKey = getSessionIdKey(input.chatId, input.threadId);
+    await getOrCreateSession(input.chatId, input.threadId);
     if (input.history && input.history.length > 0) {
-      await getOrCreateSession(input.chatId, input.threadId);
       await replaceSessionMessages(sessionKey, input.history);
       return input.history;
     }
@@ -361,6 +388,16 @@ async function main() {
   } catch (e) {
     console.warn("[gateway] Channel mapping load failed:", e);
   }
+
+  const proactiveJobDeps = {
+    insertTrace,
+    listPendingApprovals,
+    dbCreateProactiveNotification,
+    dbCreateJobExecution,
+    dbUpdateJobExecution,
+    dbUpdateScheduledJobLastRun,
+    getScheduledJob: dbGetScheduledJob,
+  };
 
   const runtime: GatewayRuntime = {
     router,
@@ -619,8 +656,38 @@ async function main() {
         channel: "local",
         chatId: "dashboard-chat",
       }),
-    advanceWorkflowStep: async ({ runId, stepId, status, result, error }) =>
-      await dbAdvanceWorkflowStep(runId, stepId, { status: status as import("@claws/shared/types").WorkflowStatus, result, error }),
+    advanceWorkflowStep: async ({ runId, stepId, status, result, error }) => {
+      const run = await dbAdvanceWorkflowStep(runId, stepId, {
+        status: status as import("@claws/shared/types").WorkflowStatus,
+        result,
+        error,
+      });
+      const workflow = run ?? (await getWorkflowRunById(runId));
+      const step = workflow?.steps?.find((s: { id: string }) => s.id === stepId);
+      const toolName = step && typeof (step as { tool?: string }).tool === "string" ? (step as { tool: string }).tool : undefined;
+      const substrate = toolName ? registry.get(toolName)?.environment : undefined;
+      await insertTrace(
+        {
+          id: randomUUID(),
+          ts: Date.now(),
+          type: "workflow-step-run",
+          agentId: workflow?.agentId ?? "worker",
+          summary: `Workflow step ${step && typeof (step as { name?: string }).name === "string" ? (step as { name: string }).name : stepId} → ${status}`,
+          data: {
+            runId,
+            stepId,
+            stepName: step && typeof (step as { name?: string }).name === "string" ? (step as { name: string }).name : stepId,
+            tool: toolName,
+            substrate: substrate ?? "api",
+            status,
+            result,
+            error,
+          },
+        },
+        undefined
+      );
+      return run;
+    },
     pauseWorkflow: async (id) => await dbPauseWorkflowRun(id),
     resumeWorkflow: async (id) => await dbResumeWorkflowRun(id),
     cancelWorkflow: async (id) => await dbCancelWorkflowRun(id),
@@ -729,15 +796,7 @@ async function main() {
     resumeProactiveJob: (id) => dbResumeScheduledJob(id),
     runProactiveJobNow: async (id) => {
       const { runProactiveJob } = await import("./proactiveRunner");
-      return runProactiveJob(id, {
-        insertTrace,
-        listPendingApprovals,
-        dbCreateProactiveNotification,
-        dbCreateJobExecution,
-        dbUpdateJobExecution,
-        dbUpdateScheduledJobLastRun,
-        getScheduledJob: dbGetScheduledJob,
-      });
+      return runProactiveJob(id, proactiveJobDeps);
     },
     listProactiveNotifications: (opts) => dbListProactiveNotifications(opts),
     listProactiveRuns: (jobId, limit) => dbListJobExecutions(jobId, limit ?? 50),
@@ -745,7 +804,8 @@ async function main() {
     listTriggerEvents: (limit, offset) => dbListTriggerEvents(limit ?? 50, offset ?? 0),
     listAttentionDecisions: (limit, offset) => dbListAttentionDecisions(limit ?? 50, offset ?? 0),
     getAttentionBudgetConfig: () => dbGetAttentionBudgetConfig(),
-    scanProjects: async () => {
+    scanProjects: async (input?: { project_slug?: string }) => {
+      const project_slug = typeof input?.project_slug === "string" ? input.project_slug.trim() || undefined : undefined;
       const projectsDir = path.join(workspaceRoot, "projects");
       if (!existsSync(projectsDir)) return [];
       const entries = await readdir(projectsDir, { withFileTypes: true });
@@ -760,6 +820,7 @@ async function main() {
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
         const slug = entry.name;
+        if (project_slug != null && slug !== project_slug) continue;
         const projDir = path.join(projectsDir, slug);
         const projectMdPath = path.join(projDir, "project.md");
         const tasksMdPath = path.join(projDir, "tasks.md");
@@ -825,14 +886,20 @@ async function main() {
                   res.write(`data: ${JSON.stringify({ type: "approval_requested", approvalId })}\n\n`);
                 }
               },
+              onComplete: async (fullText) => {
+                await persistSessionHistory(
+                  { chatId, threadId },
+                  [
+                    ...history,
+                    { role: "user", content: input.message },
+                    { role: "assistant", content: fullText || "Done." },
+                  ]
+                );
+              },
             },
             res
           );
 
-          await persistSessionHistory(
-            { chatId, threadId },
-            [...history, { role: "user", content: input.message }]
-          );
           if (isAIEnabled()) {
             const sessionKey = getSessionIdKey(chatId, threadId);
             runChatIntelligenceAnalysis({
@@ -1211,6 +1278,24 @@ async function main() {
   };
   chatRef.handleChat = runtime.handleChat;
   await startGateway(port, runtime);
+
+  // Proactivity scheduler: poll for due jobs every 30s and run them
+  const PROACTIVE_POLL_MS = 30_000;
+  setInterval(async () => {
+    try {
+      const due = await dbListDueScheduledJobs(Date.now());
+      const { runProactiveJob } = await import("./proactiveRunner");
+      for (const job of due) {
+        try {
+          await runProactiveJob(job.id, proactiveJobDeps);
+        } catch (err) {
+          console.error(`[proactive] job ${job.id} (${job.name}) failed:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[proactive] scheduler tick failed:", err);
+    }
+  }, PROACTIVE_POLL_MS);
 
   printStartupBanner(port);
 

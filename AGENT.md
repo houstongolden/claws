@@ -8,6 +8,7 @@ This repository is maintained with the help of coding agents.
 - `/project-context/tasks.jsonl` = append-only machine task log
 - `/project-context/feature-ledger.md` = canonical list of features and reconciliation status
 - `/project-context/prompts/prompt-ledger.md` = log of development prompts and their outcomes
+- `/project-context/prompts/prompt-ledger-dump2.md` = raw prompt history and reference (not the task list; use prompt-ledger.md for reconciled outcomes)
 - `/project-context/human-tasks.md` = tasks that require the human owner
 - `/project-context/Claws-PRD-v0.01.md` = archival source dump (reference-only, not canonical)
 
@@ -18,7 +19,7 @@ Agents working in this repo should:
 2. **Record every prompt:** Every prompt provided during development must be recorded in `/project-context/prompts/` (e.g. `prompt-ledger.md`). Each prompt entry must capture: title, intent, requested features, status (complete/partial/missing), and evidence. Before implementation proceeds, update the feature ledger and task list (see below).
 3. Update `/project-context/tasks.md` and append to `/project-context/tasks.jsonl`
    after meaningful changes.
-4. Keep `/project-context/feature-ledger.md` aligned with reality: when a feature is implemented or its status changes, update the feature ledger (status + evidence: files, routes, UI, runtime).
+4. Keep `/project-context/feature-ledger.md` aligned with reality: when a feature is implemented or its status changes, update the feature ledger (status + evidence: files, routes, UI, runtime). After implementing a feature, set its status and evidence in the feature ledger.
 5. Add any required manual work (API keys, accounts, decisions) to
    `/project-context/human-tasks.md`.
 6. Prefer Vercel AI SDK primitives over custom abstractions.

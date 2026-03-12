@@ -62,13 +62,14 @@ export async function listDueScheduledJobs(nowMs: number): Promise<ScheduledJob[
     "SELECT * FROM scheduled_jobs WHERE status = 'active' ORDER BY last_run_at ASC NULLS FIRST"
   );
   const rows = (res.rows ?? []).map(scheduledJobFromRow);
+  const MIN_CRON_INTERVAL_MS = 60 * 60 * 1000; // 1h minimum between cron runs until we have cron parsing
   return rows.filter((job: ScheduledJob) => {
     const lastRun = job.lastRunAt ?? 0;
     if (job.intervalSec != null) {
       return nowMs >= lastRun + job.intervalSec * 1000;
     }
     if (job.scheduleCron) {
-      return true;
+      return nowMs >= lastRun + MIN_CRON_INTERVAL_MS;
     }
     return nowMs >= lastRun + 60_000;
   });

@@ -37,6 +37,67 @@ export async function getStatus() {
   return request<GatewayStatusResponse>("/api/status", { method: "GET" });
 }
 
+export type EnvVar = {
+  key: string;
+  group: string;
+  sensitive: boolean;
+  desc: string;
+  isSet: boolean;
+  redacted: string | null;
+};
+
+export async function getEnvVars() {
+  return request<{ ok: boolean; vars: EnvVar[] }>("/api/env", { method: "GET" });
+}
+
+export async function getRawEnvFile() {
+  return request<{ ok: boolean; content: string }>("/api/env/raw", { method: "GET" });
+}
+
+export async function saveEnvFile(content: string) {
+  return request<{ ok: boolean; message?: string; error?: string }>("/api/env", {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function restartGateway() {
+  return request<{ ok: boolean; message?: string }>("/api/restart", { method: "POST" });
+}
+
+export async function openCli(command?: string) {
+  return request<{ ok: boolean; message?: string; command?: string }>("/api/cli/open", {
+    method: "POST",
+    body: JSON.stringify({ command: command ?? "tui" }),
+  });
+}
+
+export type SystemInfo = {
+  version: string;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  cloudSync: {
+    enabled: boolean;
+    lastSynced: string | null;
+    status: "idle" | "syncing" | "error" | "disabled";
+  };
+  dashboard: {
+    isCustom: boolean;
+    templateVersion: string;
+  };
+};
+
+export async function getSystemInfo() {
+  return request<{ ok: boolean } & SystemInfo>("/api/system/info", { method: "GET" });
+}
+
+export async function setCloudSync(enabled: boolean) {
+  return request<{ ok: boolean; enabled: boolean }>("/api/system/cloud-sync", {
+    method: "POST",
+    body: JSON.stringify({ enabled }),
+  });
+}
+
 export type SessionHistoryMessage = {
   role: "user" | "assistant";
   content: string;
@@ -222,10 +283,12 @@ export async function getTaskEvents() {
   });
 }
 
-export async function getTaskEventsPage(input?: { limit?: number; offset?: number }) {
+export async function getTaskEventsPage(input?: { limit?: number; offset?: number; view?: string; project_slug?: string }) {
   const params = new URLSearchParams();
   if (input?.limit !== undefined) params.set("limit", String(input.limit));
   if (input?.offset !== undefined) params.set("offset", String(input.offset));
+  if (input?.view !== undefined) params.set("view", input.view);
+  if (input?.project_slug !== undefined) params.set("project_slug", input.project_slug);
   const query = params.toString();
   return request<{ ok: boolean; events: TaskEvent[] }>(`/api/tasks/events${query ? `?${query}` : ""}`, {
     method: "GET"
@@ -446,8 +509,11 @@ export type ProjectInfo = {
   hasTasksMd: boolean;
 };
 
-export async function getProjects() {
-  return request<{ ok: boolean; projects: ProjectInfo[] }>("/api/projects", {
+export async function getProjects(project_slug?: string) {
+  const params = new URLSearchParams();
+  if (project_slug !== undefined) params.set("project_slug", project_slug);
+  const query = params.toString();
+  return request<{ ok: boolean; projects: ProjectInfo[] }>(`/api/projects${query ? `?${query}` : ""}`, {
     method: "GET",
   });
 }

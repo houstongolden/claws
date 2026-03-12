@@ -24,8 +24,12 @@ import { Toolbar, ToolbarLabel, ToolbarSeparator } from "../../components/ui/too
 import { StatusDot } from "../../components/ui/status-dot";
 import { InlineCode } from "../../components/ui/code-block";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
+import { Plus, Trash2 } from "lucide-react";
 import {
   getWorkflows,
+  createWorkflow,
   pauseWorkflow,
   resumeWorkflow,
   cancelWorkflow,
@@ -52,6 +56,78 @@ export default function WorkflowsPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tab, setTab] = useState("runs");
+
+  type CreateStep = { id: string; name: string; tool: string; argsJson: string; requiresApproval: boolean };
+  const [createName, setCreateName] = useState("");
+  const [createDesc, setCreateDesc] = useState("");
+  const [createSteps, setCreateSteps] = useState<CreateStep[]>([
+    { id: `step_${Date.now()}_0`, name: "Step 1", tool: "", argsJson: "{}", requiresApproval: false },
+  ]);
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  function addCreateStep() {
+    setCreateSteps((s) => [
+      ...s,
+      { id: `step_${Date.now()}_${s.length}`, name: `Step ${s.length + 1}`, tool: "", argsJson: "{}", requiresApproval: false },
+    ]);
+  }
+  function removeCreateStep(id: string) {
+    setCreateSteps((s) => (s.length <= 1 ? s : s.filter((x) => x.id !== id)));
+  }
+  function updateCreateStep(id: string, patch: Partial<CreateStep>) {
+    setCreateSteps((s) => s.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  }
+
+  async function handleCreateSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const name = createName.trim();
+    if (!name) {
+      setCreateError("Name is required");
+      return;
+    }
+    setCreateError(null);
+    setCreateBusy(true);
+    try {
+      const steps = createSteps.map((s) => {
+        let args: Record<string, unknown> = {};
+        if (s.argsJson.trim()) {
+          try {
+            args = JSON.parse(s.argsJson) as Record<string, unknown>;
+          } catch {
+            args = {};
+          }
+        }
+        return {
+          id: s.id,
+          name: s.name.trim() || s.id,
+          tool: s.tool.trim() || undefined,
+          args: Object.keys(args).length ? args : undefined,
+          requiresApproval: s.requiresApproval,
+        };
+      });
+      const res = await createWorkflow({
+        definition: {
+          id: `wf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          name,
+          description: createDesc.trim() || "",
+          steps,
+        },
+        agentId: "orchestrator",
+      });
+      setCreateName("");
+      setCreateDesc("");
+      setCreateSteps([{ id: `step_${Date.now()}_0`, name: "Step 1", tool: "", argsJson: "{}", requiresApproval: false }]);
+      setCreateError(null);
+      await load();
+      setTab("runs");
+      if (res.workflow?.id) setExpandedId(res.workflow.id);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : "Create failed");
+    } finally {
+      setCreateBusy(false);
+    }
+  }
 
   async function load() {
     try {
@@ -115,8 +191,108 @@ export default function WorkflowsPage() {
               <TabsTrigger value="runs">
                 Runs ({workflows.length})
               </TabsTrigger>
+              <TabsTrigger value="create">Create</TabsTrigger>
               <TabsTrigger value="architecture">Architecture</TabsTrigger>
             </TabsList>
+
+            <TabsContent value="create">
+              <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-4">
+                <div className="text-[13px] font-medium">New workflow</div>
+                <form onSubmit={handleCreateSubmit} className="space-y-4">
+                  <div>
+                    <label htmlFor="wf-name" className="text-[12px] font-medium text-muted-foreground block mb-1.5">
+                      Name
+                    </label>
+                    <Input
+                      id="wf-name"
+                      value={createName}
+                      onChange={(e) => setCreateName(e.target.value)}
+                      placeholder="My workflow"
+                      className="max-w-md"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="wf-desc" className="text-[12px] font-medium text-muted-foreground block mb-1.5">
+                      Description (optional)
+                    </label>
+                    <Input
+                      id="wf-desc"
+                      value={createDesc}
+                      onChange={(e) => setCreateDesc(e.target.value)}
+                      placeholder="Short description"
+                      className="max-w-md"
+                    />
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[12px] font-medium text-muted-foreground">Steps</label>
+                      <Button type="button" variant="outline" size="sm" onClick={addCreateStep}>
+                        <Plus size={12} /> Add step
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {createSteps.map((step, idx) => (
+                        <div
+                          key={step.id}
+                          className="rounded-md border border-border bg-surface-2 p-3 space-y-2"
+                        >
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Input
+                              placeholder="Step name"
+                              value={step.name}
+                              onChange={(e) => updateCreateStep(step.id, { name: e.target.value })}
+                              className="flex-1 min-w-[120px]"
+                            />
+                            <Input
+                              placeholder="Tool (e.g. fs.read)"
+                              value={step.tool}
+                              onChange={(e) => updateCreateStep(step.id, { tool: e.target.value })}
+                              className="w-32"
+                            />
+                            <label className="flex items-center gap-1.5 text-[12px] text-muted-foreground whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={step.requiresApproval}
+                                onChange={(e) => updateCreateStep(step.id, { requiresApproval: e.target.checked })}
+                                className="rounded border-border"
+                              />
+                              Approval
+                            </label>
+                            {createSteps.length > 1 ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeCreateStep(step.id)}
+                                aria-label={`Remove step ${idx + 1}`}
+                              >
+                                <Trash2 size={14} />
+                              </Button>
+                            ) : null}
+                          </div>
+                          <Textarea
+                            placeholder='Args as JSON, e.g. {"path": "prompt/ROUTING.md"}'
+                            value={step.argsJson}
+                            onChange={(e) => updateCreateStep(step.id, { argsJson: e.target.value })}
+                            rows={2}
+                            className="text-[12px] font-[family-name:var(--font-geist-mono)]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {createError ? (
+                    <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                      {createError}
+                    </div>
+                  ) : null}
+                  <Button type="submit" disabled={createBusy}>
+                    {createBusy ? <Loader2 size={14} className="animate-spin" /> : null}
+                    {createBusy ? " Creating..." : "Create workflow"}
+                  </Button>
+                </form>
+              </div>
+            </TabsContent>
 
             <TabsContent value="runs">
               <div className="space-y-4">

@@ -166,7 +166,7 @@ export default function ProjectSlugPage({ params }: { params: Promise<{ slug: st
       try {
         const [tracesRes, eventsRes, approvalsRes, memoryRes] = await Promise.all([
           getTracesPage({ limit: 200, offset: 0 }),
-          getTaskEventsPage({ limit: 100, offset: 0 }),
+          getTaskEventsPage({ limit: 100, offset: 0, project_slug: slug }),
           getApprovals(),
           runTool("memory.search", { query: project.name, limit: 10 }),
         ]);

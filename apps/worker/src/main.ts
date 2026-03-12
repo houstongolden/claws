@@ -1,15 +1,18 @@
 /**
  * Claws background worker — polls for pending workflow steps and executes them.
- *
- * Connects to the gateway API to:
- *   1. List workflows with "running" or "pending" status
- *   2. Find the next actionable step
- *   3. Execute the step's tool (if any)
- *   4. Advance the step with the result
- *
- * In local-first mode, this runs alongside the gateway.
- * In hosted mode, this would run as a separate Vercel cron/queue worker.
  */
+import dotenv from "dotenv";
+import { existsSync } from "node:fs";
+import path from "node:path";
+
+for (const name of [".env.local", ".env"]) {
+  const p = path.resolve(process.cwd(), name);
+  if (existsSync(p)) { dotenv.config({ path: p }); break; }
+}
+for (const name of [".env.local", ".env"]) {
+  const p = path.resolve(process.cwd(), "..", "..", name);
+  if (existsSync(p)) { dotenv.config({ path: p, override: false }); break; }
+}
 
 const GATEWAY_URL = process.env.CLAWS_GATEWAY_URL || "http://localhost:4317";
 const POLL_INTERVAL_MS = Number(process.env.CLAWS_WORKER_POLL_MS || 5000);

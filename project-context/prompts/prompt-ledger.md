@@ -4,6 +4,8 @@ Every prompt provided during development that drove implementation. Reconstructe
 
 **Execution order** is approximate (earliest first). **Status**: complete | partial | missing.
 
+For **implementation status** of each area (files, routes, runtime), see [feature-ledger.md](../feature-ledger.md). For the **task queue** and next work, see [tasks.md](../tasks.md) and [next-pass.md](../next-pass.md).
+
 ---
 
 ## 1. Bootstrap and Monorepo
@@ -211,10 +213,11 @@ Every prompt provided during development that drove implementation. Reconstructe
 **Status:** complete
 
 **Evidence:**
-- files: session-workbench.tsx, nav, shell, main.ts (session routing, replaceSessionMessages, getOrCreateSession)
-- runtime: chatId/threadId sent; history in client and replaceSessionMessages; PGlite sessions table used for view state; approval session grant scoped by session key
+- files: session-workbench.tsx, nav, shell, apps/gateway/src/main.ts (session routing, replaceSessionMessages, getOrCreateSession, onComplete → persistSessionHistory)
+- routes: chat carries chatId/threadId; PGlite sessions table
+- runtime: chatId/threadId sent; streaming path persists assistant reply after stream complete; approval session grant scoped by session key; session list/resume UI optional for v0
 
-**Note:** Session *transcript* persistence: messages stored in PGlite per session when replaceSessionMessages/appendMessage used; client still sends history on each request. Full server-authoritative transcript load on reconnect not confirmed.
+**Note:** Session transcript persistence: streaming path now persists assistant reply via onComplete → persistSessionHistory in apps/gateway/src/main.ts. Session list/resume in UI optional for v0.
 
 ---
 
@@ -263,14 +266,14 @@ Every prompt provided during development that drove implementation. Reconstructe
 - Dashboard Proactivity page (jobs, notifications, recent runs)
 - Slash commands: /morning-brief, /eod, /watchdog, etc.
 - Built-in jobs: Morning Brief, Midday Report, EOD Report, Approvals Watchdog, Stale Project Watchdog
-- Stub handlers (no cron scheduler yet; no AI synthesis in handlers)
+- Stub handlers (no AI synthesis in handlers); **cron/interval scheduler:** gateway runs 30s setInterval calling listDueScheduledJobs and runProactiveJob (apps/gateway/src/main.ts)
 
 **Status:** partial
 
 **Evidence:**
-- files: packages/shared/types (proactivity types), packages/runtime-db schema + proactivity.ts, gateway httpServer proactivity routes, proactiveRunner.ts, dashboard app/proactivity/page.tsx, session-workbench slash handling
+- files: packages/shared/types (proactivity types), packages/runtime-db schema + proactivity.ts, apps/gateway/src/main.ts (scheduler), apps/gateway httpServer proactivity routes, proactiveRunner.ts, dashboard app/proactivity/page.tsx, session-workbench slash handling
 - routes: GET/POST /api/proactive/jobs, pause, resume, run, notifications, runs
-- runtime: seedBuiltInProactiveJobs at startup; runProactiveJobNow runs stub handlers; no periodic scheduler; slash commands trigger run now
+- runtime: seedBuiltInProactiveJobs at startup; runProactiveJobNow and 30s scheduler run stub handlers; slash commands trigger run now
 - docs: project-context/PROACTIVITY-ENGINE-REPORT.md
 
 ---

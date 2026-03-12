@@ -1,6 +1,6 @@
 # Claws
 
-Local-first, Vercel-native, chat-first agent OS.
+**Open-source, Vercel-powered, local-first agent OS** — an OpenClaw-style personal agent you can self-host. Chat-first, multi-agent capable, with CLI/TUI parity and a markdown-native workspace.
 
 Built with Next.js, Vercel AI SDK v6, Geist design system, Tailwind CSS, shadcn/ui, and TypeScript.
 
@@ -258,11 +258,15 @@ project-context/   # canonical PRD/tasks/roadmap docs
 
 ## Canonical planning docs
 
+Planning and feature status live in `project-context/`. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run the repo and add features.
+
 - `project-context/prd.md` — product specification
+- `project-context/feature-ledger.md` — canonical feature list and implementation status
 - `project-context/tasks.md` — build queue
 - `project-context/tasks.jsonl` — append-only task events
-- `project-context/build-roadmap.md` — phased delivery plan
 - `project-context/next-pass.md` — current sprint
+- `project-context/current-state.md` — snapshot and gaps
+- `project-context/build-roadmap.md` — phased delivery plan
 - `AGENT.md` — agent workflow rules
 
 ## Implementation references

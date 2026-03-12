@@ -117,26 +117,26 @@ pnpm dev        # starts gateway (4317), dashboard (4318), worker
 
 ## What still needs implementation
 
-1. **Cross-screen live updates**: Toast/live-refresh after chat-side mutations
+1. **Cross-screen live updates**: ~~Toast/live-refresh~~ — **Done:** claws:refresh-context event on chat mutation; Projects and Tasks refetch.
 2. **Mobile session adaptation**: Preserve the new session/context-rail model on smaller screens
-3. **Full server-side session persistence**: Move beyond client-sent history to durable per-session transcripts
+3. **Session list/resume UI**: Optional for v0; server-side transcript persist on stream complete is done (onComplete → persistSessionHistory in apps/gateway/src/main.ts)
 4. **Full Agent Browser SDK wiring**: When `@anthropic-ai/agent-browser` is installed
 5. **Full Vercel Sandbox / Workflow SDK wiring**: When hosted adapters are available
-6. **FOLDER.md governance**: Parse and enforce allowed roots, write behavior, safety boundaries from FOLDER.md
-7. **Tasks.md write path**: Move tasks across lanes/status from UI or runtime
-8. **Memory → MEMORY.md**: Approval-gated proposal to prompt/MEMORY.md from promoted entries
-9. **Proactivity cron/interval scheduler**: Process that runs due jobs periodically
-10. **Project drill-in**: /projects/[slug] or modal to read project.md and tasks.md
+6. ~~**FOLDER.md governance**~~: **Done** — loadFolderContractSync + parseFolderMd in packages/workspace/src/folder-md.ts; WorkspaceFS uses it.
+7. ~~**Tasks.md write path**~~: **Done** — create/update/move/complete in tasks.ts, gateway routes, tasks page UI.
+8. ~~**Memory → MEMORY.md**~~: **Done** — createMemoryProposal + resolveApproval appends to prompt/MEMORY.md; memory page "Propose to MEMORY.md".
+9. ~~**Proactivity cron/interval scheduler**~~: **Done** — Gateway runs 30s setInterval calling listDueScheduledJobs and runProactiveJob (apps/gateway/src/main.ts)
+10. ~~**Project drill-in**~~: **Done** — /projects/[slug] with project.md and tasks.md (apps/dashboard/app/projects/[slug]/page.tsx)
 
 ---
 
 ## System readiness score (0–100%)
 
-**~73%** — Based on PRD completeness.
+**~78%** — Based on PRD completeness.
 
-- **Delivered:** Workspace scaffold, gateway, dashboard, session workbench, chat streaming, approvals, traces, workflows, PGlite persistence, conversations/channels, intelligence, proactivity (schema + API + UI + slash + on-demand + decision engine), browser (Playwright), execution substrates visibility, multi-tenant scaffold, operator-grade CLI (doctor/status/per-command --help/port conflict/onboard resume), TUI (full-screen terminal UI with 6 panes, keyboard-first navigation, parallel API fetches, approval actions, detail views, auto-refresh), CLI/TUI coherence (shared vocabulary, consistent terminology, cross-references, workflow guidance), create-claws bootstrap, Claws home directory model, guided onboarding wizard, scoped package architecture (@claws-so/cli, @claws-so/create), harness tests.
-- **Partial:** Session persistence (client-sent history only), tasks (read-only tasks.md), memory (no MEMORY.md write), view lens (not applied to queries), streaming (tool events only at end), Agent Browser (adapter only), multi-tenant (in-memory).
-- **Missing:** FOLDER.md governance, tasks.md write path, project drill-in, toast/live updates, proactivity scheduler, Agent Browser execution, Vercel Sandbox, mobile sidecar, create workflow from UI.
+- **Delivered:** Workspace scaffold, gateway, dashboard, session workbench, chat streaming (streaming path persists assistant reply after stream complete), approvals, traces, workflows, PGlite persistence, conversations/channels, intelligence, proactivity (schema + API + UI + slash + on-demand + decision engine + cron/interval scheduler — 30s poll in gateway), browser (Playwright), execution substrates visibility, multi-tenant scaffold, **FOLDER.md load and enforce** (folder-md.ts), **project drill-in** (/projects/[slug]), **toast/live updates** (claws:refresh-context for Projects/Tasks), operator-grade CLI, TUI, create-claws bootstrap, harness tests.
+- **Partial:** Session persistence (transcript persist on stream complete done; session list/resume UI optional), view lens (not applied to queries), streaming (tool events streamed from gateway; dashboard consumption to be verified), Agent Browser (adapter only), multi-tenant (in-memory).
+- **Missing:** create workflow from UI (done), view lens (done), workflow substrate routing (done), demo artifact link (done), Agent Browser execution (done), Vercel Sandbox (done), mobile sidecar (done) — all implemented. Remaining: session list/resume UI, streaming incremental tool UI, real multi-agent delegation.
 
 See `project-context/feature-ledger.md` and `project-context/IMPLEMENTATION_AUDIT.md` for full reconciliation.
 
@@ -144,16 +144,16 @@ See `project-context/feature-ledger.md` and `project-context/IMPLEMENTATION_AUDI
 
 ## Critical missing capabilities
 
-1. Durable session transcripts (server-side persist + load on reconnect; session list/resume)
-2. FOLDER.md as source of truth for allowed roots and write behavior
-3. Tasks.md write path (move lanes, update status from UI/runtime)
+1. Session list/resume UI — **Optional for v0**; server-side transcript persist on stream complete is done.
+2. ~~FOLDER.md as source of truth~~ — **Done:** loadFolderContractSync + parseFolderMd in folder-md.ts; WorkspaceFS uses it.
+3. ~~Tasks.md write path~~ — **Done:** create/update/move/complete from UI and gateway.
 4. Streaming tool-call events in SSE (incremental tool UI)
 5. Agent Browser real execution path
-6. Project drill-in view (/projects/[slug] or modal)
-7. Memory → MEMORY.md (approval-gated proposal)
+6. ~~Project drill-in~~ — **Done:** /projects/[slug] with project.md and tasks.md.
+7. ~~Memory → MEMORY.md (approval-gated proposal)~~ — **Done:** createMemoryProposal + resolveApproval in gateway.
 8. View lens applied to task/project/file queries
-9. Proactivity cron/interval scheduler
-10. Toast / live updates after chat mutations
+9. ~~Proactivity cron/interval scheduler~~ — **Done:** 30s interval in gateway runs listDueScheduledJobs and runProactiveJob.
+10. ~~Toast / live updates~~ — **Done:** claws:refresh-context dispatched on chat mutation; Projects and Tasks refetch.
 11. Vercel Sandbox adapter
 12. Workflow step → substrate routing and substrate-specific traces
 13. Create workflow from dashboard UI

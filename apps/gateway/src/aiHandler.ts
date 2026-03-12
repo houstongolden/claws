@@ -1,9 +1,10 @@
-import { generateText, streamText, tool, stepCountIs, jsonSchema, type ToolSet } from "ai";
+import { generateText, streamText, tool, stepCountIs, jsonSchema, zodSchema, type ToolSet } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGateway } from "@ai-sdk/gateway";
 import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 import type { ToolRegistry } from "@claws/tools/index";
+import { z } from "zod";
 
 export type AIHandlerOptions = {
   registry: ToolRegistry;
@@ -34,9 +35,19 @@ export type ChatHistoryTurn = {
 
 const DEFAULT_SYSTEM_PROMPT = `You are Claws, a local-first AI agent OS assistant. You help users manage their workspace, projects, files, memory, and tasks.
 
-You have access to tools for filesystem operations, memory management, browser automation, and more. Use them when the user's request requires action.
+You have access to tools for filesystem operations, memory management, browser automation, and more. Use them when the user's request requires action — call tools directly, never output XML or pseudo-code for tool calls.
 
-Be concise, helpful, and action-oriented. Prefer doing over explaining.`;
+When creating or writing files (HTML, code, config, etc.):
+- Always use the fs.write tool with path and content. Never paste the full file content into your message.
+- After calling the tool, give a short confirmation only (e.g. "I've created \`filename.html\`. You can open it in the preview on the right.").
+
+When a browser or demo tool returns a demoPath (path to a saved screenshot or recording), include it in your reply so the user can open it (e.g. "Demo saved at \`assets/demos/YYYY-MM-DD/demo-xxx.png\`.").
+
+Format your responses using Markdown:
+- Use **bold** for emphasis, \`code\` for technical terms, and code blocks with language tags for code
+- Use bullet lists and numbered lists for structured information
+- Be concise, helpful, and action-oriented — prefer doing over explaining
+- When you create something (project, task, file), confirm what was done in a short summary`;
 
 function buildSystemPrompt(options: AIHandlerOptions): string {
   const parts = [options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT];
@@ -97,14 +108,14 @@ let loggedProvider: ResolvedAIProvider["provider"] | undefined;
 export function getConfiguredAIProvider():
   | ResolvedAIProvider["provider"]
   | null {
-  if (process.env.AI_GATEWAY_API_KEY) {
-    return "gateway";
+  if (process.env.ANTHROPIC_API_KEY) {
+    return "anthropic";
   }
   if (process.env.OPENAI_API_KEY) {
     return "openai";
   }
-  if (process.env.ANTHROPIC_API_KEY) {
-    return "anthropic";
+  if (process.env.AI_GATEWAY_API_KEY) {
+    return "gateway";
   }
   return null;
 }
@@ -129,16 +140,19 @@ function logActiveProvider(provider: ResolvedAIProvider["provider"]): void {
 }
 
 export function resolveModelProvider(): ResolvedAIProvider {
-  if (process.env.AI_GATEWAY_API_KEY) {
-    const gatewayUrl = process.env.AI_GATEWAY_URL;
-    const gateway = createGateway({
-      apiKey: process.env.AI_GATEWAY_API_KEY,
-      ...(gatewayUrl ? { baseURL: gatewayUrl } : {}),
+  // Anthropic first — most reliable for local-first usage
+  if (process.env.ANTHROPIC_API_KEY) {
+    const anthropic = createAnthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     });
-
     return {
-      provider: "gateway",
-      model: (modelId: string) => gateway(modelId.includes(":") ? modelId : `openai:${modelId}`),
+      provider: "anthropic",
+      model: (modelId: string) => {
+        const id = modelId.startsWith("gpt-") || modelId.startsWith("o1") || modelId.startsWith("o3")
+          ? "claude-sonnet-4-20250514"
+          : modelId;
+        return anthropic(id);
+      },
     };
   }
 
@@ -152,13 +166,16 @@ export function resolveModelProvider(): ResolvedAIProvider {
     };
   }
 
-  if (process.env.ANTHROPIC_API_KEY) {
-    const anthropic = createAnthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+  if (process.env.AI_GATEWAY_API_KEY) {
+    const gatewayUrl = process.env.AI_GATEWAY_URL;
+    const gateway = createGateway({
+      apiKey: process.env.AI_GATEWAY_API_KEY,
+      ...(gatewayUrl ? { baseURL: gatewayUrl } : {}),
     });
+
     return {
-      provider: "anthropic",
-      model: (modelId: string) => anthropic(modelId),
+      provider: "gateway",
+      model: (modelId: string) => gateway(modelId.includes(":") ? modelId : `openai:${modelId}`),
     };
   }
 
@@ -166,7 +183,11 @@ export function resolveModelProvider(): ResolvedAIProvider {
 }
 
 export function validateAIProviderConfiguration(): void {
-  resolveModelProvider();
+  try {
+    resolveModelProvider();
+  } catch {
+    console.warn("⚠️  No AI provider configured. Chat will not work until you set at least one API key in .env.local and restart.");
+  }
 }
 
 export function createAIModel(): LanguageModelV3 {
@@ -177,149 +198,37 @@ export function createAIModel(): LanguageModelV3 {
   return provider.model(modelId);
 }
 
-type JSONSchemaProperty = {
-  type: string;
-  description?: string;
-  enum?: string[];
-  items?: JSONSchemaProperty;
+const TOOL_ZOD_SCHEMAS: Record<string, z.ZodType> = {
+  "fs.read": z.object({ path: z.string().describe("File path to read") }),
+  "fs.write": z.object({ path: z.string().describe("File path to write"), content: z.string().describe("Content to write") }),
+  "fs.append": z.object({ path: z.string().describe("File path to append to"), content: z.string().describe("Content to append") }),
+  "fs.list": z.object({ path: z.string().optional().describe("Directory path to list") }),
+  "memory.search": z.object({ query: z.string().describe("Search query") }),
+  "memory.flush": z.object({ text: z.string().describe("Text to save to memory"), source: z.string().optional().describe("Source label") }),
+  "memory.promote": z.object({ entryId: z.string().describe("Memory entry ID") }),
+  "memory.getEntry": z.object({ entryId: z.string().describe("Memory entry ID to retrieve") }),
+  "browser.navigate": z.object({ url: z.string().describe("URL to navigate to"), mode: z.enum(["background", "record-on-complete", "watch-live", "hybrid"]).optional().describe("Visibility mode") }),
+  "browser.screenshot": z.object({ url: z.string().describe("URL to screenshot") }),
+  "browser.click": z.object({ selector: z.string().describe("CSS selector to click"), url: z.string().optional().describe("URL context") }),
+  "browser.type": z.object({ selector: z.string().describe("CSS selector to type into"), text: z.string().describe("Text to type"), url: z.string().optional().describe("URL context") }),
+  "browser.extract": z.object({ url: z.string().describe("URL to extract content from"), selector: z.string().optional().describe("CSS selector") }),
+  "sandbox.exec": z.object({ code: z.string().optional().describe("Code to execute"), language: z.string().optional().describe("Language runtime") }),
+  "status.get": z.object({}),
+  "tasks.appendEvent": z.object({ event: z.record(z.unknown()).describe("Task event payload") }),
+  "tasks.createTask": z.object({ task: z.string().describe("Task title"), section: z.string().optional(), priority: z.string().optional(), owner: z.string().optional() }),
+  "tasks.updateTask": z.object({ taskId: z.string().describe("Task ID"), patch: z.record(z.string()).describe("Fields to update") }),
+  "tasks.moveTask": z.object({ taskId: z.string().describe("Task ID"), status: z.string().optional(), targetSection: z.string().optional() }),
+  "tasks.completeTask": z.object({ taskId: z.string().describe("Task ID to complete") }),
+  "demo.saveScreenshot": z.object({ screenshot: z.string().describe("Base64-encoded PNG"), taskUrl: z.string().optional(), agentId: z.string().optional() }),
+  "demo.saveMetadata": z.object({ metadata: z.record(z.unknown()).describe("Demo metadata"), taskUrl: z.string().optional(), agentId: z.string().optional() }),
 };
 
-type JSONSchemaDef = {
-  type: "object";
-  properties: Record<string, JSONSchemaProperty>;
-  required?: string[];
-};
+const DEFAULT_ZOD_SCHEMA = z.object({});
 
-const TOOL_JSON_SCHEMAS: Record<string, JSONSchemaDef> = {
-  "fs.read": {
-    type: "object",
-    properties: { path: { type: "string", description: "File path to read" } },
-    required: ["path"],
-  },
-  "fs.write": {
-    type: "object",
-    properties: {
-      path: { type: "string", description: "File path to write" },
-      content: { type: "string", description: "Content to write" },
-    },
-    required: ["path", "content"],
-  },
-  "fs.append": {
-    type: "object",
-    properties: {
-      path: { type: "string", description: "File path to append to" },
-      content: { type: "string", description: "Content to append" },
-    },
-    required: ["path", "content"],
-  },
-  "fs.list": {
-    type: "object",
-    properties: {
-      path: { type: "string", description: "Directory path to list (optional root-relative path)" },
-    },
-  },
-  "memory.search": {
-    type: "object",
-    properties: { query: { type: "string", description: "Search query" } },
-    required: ["query"],
-  },
-  "memory.flush": {
-    type: "object",
-    properties: {
-      text: { type: "string", description: "Text to save to memory" },
-      source: { type: "string", description: "Source label" },
-    },
-    required: ["text"],
-  },
-  "memory.promote": {
-    type: "object",
-    properties: { entryId: { type: "string", description: "Memory entry ID" } },
-    required: ["entryId"],
-  },
-  "browser.navigate": {
-    type: "object",
-    properties: {
-      url: { type: "string", description: "URL to navigate to" },
-      mode: {
-        type: "string",
-        description: "Execution visibility mode",
-        enum: ["background", "record-on-complete", "watch-live", "hybrid"],
-      },
-    },
-    required: ["url"],
-  },
-  "browser.screenshot": {
-    type: "object",
-    properties: { url: { type: "string", description: "URL to screenshot" } },
-    required: ["url"],
-  },
-  "sandbox.exec": {
-    type: "object",
-    properties: {
-      code: { type: "string", description: "Code to execute" },
-      language: { type: "string", description: "Language runtime" },
-    },
-  },
-  "status.get": {
-    type: "object",
-    properties: {},
-  },
-  "tasks.appendEvent": {
-    type: "object",
-    properties: {
-      event: { type: "object" as string, description: "Task event payload" },
-    },
-    required: ["event"],
-  },
-  "demo.saveScreenshot": {
-    type: "object",
-    properties: {
-      screenshot: { type: "string", description: "Base64-encoded PNG screenshot" },
-      taskUrl: { type: "string", description: "URL of the task being demonstrated" },
-      agentId: { type: "string", description: "ID of the agent saving the demo" },
-    },
-    required: ["screenshot"],
-  },
-  "demo.saveMetadata": {
-    type: "object",
-    properties: {
-      metadata: { type: "object" as string, description: "Arbitrary demo metadata" },
-      taskUrl: { type: "string", description: "URL of the task being demonstrated" },
-      agentId: { type: "string", description: "ID of the agent saving the demo" },
-    },
-    required: ["metadata"],
-  },
-  "browser.click": {
-    type: "object",
-    properties: {
-      selector: { type: "string", description: "CSS selector to click" },
-      url: { type: "string", description: "URL of the page (optional context)" },
-    },
-    required: ["selector"],
-  },
-  "browser.type": {
-    type: "object",
-    properties: {
-      selector: { type: "string", description: "CSS selector to type into" },
-      text: { type: "string", description: "Text to type" },
-      url: { type: "string", description: "URL of the page (optional context)" },
-    },
-    required: ["selector", "text"],
-  },
-  "browser.extract": {
-    type: "object",
-    properties: {
-      url: { type: "string", description: "URL to extract content from" },
-      selector: { type: "string", description: "CSS selector to extract (default: body)" },
-    },
-    required: ["url"],
-  },
-};
-
-const DEFAULT_SCHEMA: JSONSchemaDef = {
-  type: "object",
-  properties: {},
-};
+/** Anthropic requires tool names matching ^[a-zA-Z0-9_-]+$ — no dots */
+function sanitizeToolName(name: string): string {
+  return name.replace(/\./g, "_");
+}
 
 function buildAITools(
   registry: ToolRegistry,
@@ -338,14 +247,12 @@ function buildAITools(
     const spec = registry.get(name);
     if (!spec) continue;
 
-    const schemaDef = TOOL_JSON_SCHEMAS[name] ?? DEFAULT_SCHEMA;
+    const toolZodSchema = TOOL_ZOD_SCHEMAS[name] ?? DEFAULT_ZOD_SCHEMA;
+    const safeName = sanitizeToolName(name);
 
-    // AI SDK v6 overloads are strict about generic inference with dynamic
-    // jsonSchema(). Runtime behavior is verified correct; the type assertion
-    // through unknown is required for dynamically-built tool sets.
-    tools[name] = tool({
+    tools[safeName] = tool({
       description: spec.description || name,
-      parameters: jsonSchema(schemaDef as Parameters<typeof jsonSchema>[0]),
+      parameters: zodSchema(toolZodSchema as z.ZodObject<Record<string, z.ZodTypeAny>>),
       execute: async (args: Record<string, unknown>) => {
         try {
           const result = await guardedRunTool({ name, args });
@@ -382,7 +289,7 @@ function buildAITools(
           message: { type: "string", description: "Message or task to send to that agent" },
         },
         required: ["agentId", "message"],
-      }),
+      } as Parameters<typeof jsonSchema>[0]),
       execute: async (args: Record<string, unknown>) => {
         const agentId = String(args.agentId ?? "").trim();
         const message = String(args.message ?? "").trim();
@@ -456,8 +363,6 @@ export async function handleAIChat(
     model,
     system,
     prompt: renderConversationPrompt(input.message, input.history),
-    tools: aiTools,
-    stopWhen: stepCountIs(5),
   });
 
   return {
@@ -492,8 +397,6 @@ export function handleAIChatStream(
     model,
     system,
     prompt: renderConversationPrompt(input.message, input.history),
-    tools: aiTools,
-    stopWhen: stepCountIs(5),
   });
 
   return result.textStream as unknown as ReadableStream;
@@ -511,6 +414,11 @@ export async function writeStreamToResponse(
   options: AIHandlerOptions & {
     /** When a tool throws an approval-required error, this is called before rethrowing. */
     onApprovalRequested?: (approvalId: string) => void;
+    /** Called when stream completes successfully with final text and tool results (e.g. to persist session). */
+    onComplete?: (
+      fullText: string,
+      toolResults: Array<{ toolName: string; ok: boolean; error?: string; data?: unknown }>
+    ) => void | Promise<void>;
   },
   res: import("node:http").ServerResponse
 ): Promise<void> {
@@ -555,8 +463,6 @@ export async function writeStreamToResponse(
     model,
     system,
     prompt: renderConversationPrompt(input.message, input.history),
-    tools: aiTools,
-    stopWhen: stepCountIs(5),
   });
 
   try {
@@ -617,6 +523,7 @@ export async function writeStreamToResponse(
     if (finalText !== undefined) fullText = finalText;
 
     if (!res.destroyed) {
+      await options.onComplete?.(fullText, toolResults);
       writeEvent({
         type: "complete",
         text: fullText,

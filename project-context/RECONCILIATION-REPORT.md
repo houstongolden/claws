@@ -63,9 +63,9 @@ Examples: Session model (no server-side transcript load/resume), tasks build que
 
 ## 5. Features missing
 
-**12** features classified as **missing** (requested or implied by PRD but not implemented).
+**11** features classified as **missing** (requested or implied by PRD but not implemented).
 
-Examples: Project drill-in view, task editing (writes to tasks.md), toast/live updates, FOLDER.md governance, proactivity cron/interval scheduler, proactive messages to conversation, surprise artifact generation, Telegram adapter, Slack adapter, computer use substrate, full Agent Browser execution path.
+Examples: Project drill-in view, task editing (writes to tasks.md), toast/live updates, FOLDER.md governance, proactive messages to conversation, surprise artifact generation, Telegram adapter, Slack adapter, computer use substrate, full Agent Browser execution path. Cron/interval scheduler is now **complete** (gateway 30s setInterval; see feature-ledger).
 
 (Placeholder count: **3** — Agent Browser execution, sandbox Vercel adapter, and similar “scaffold only” items.)
 
@@ -81,7 +81,7 @@ Examples: Project drill-in view, task editing (writes to tasks.md), toast/live u
 4. FOLDER.md (never read; roots hardcoded)
 5. Tasks.md write path (read-only)
 6. Memory → MEMORY.md (promote to store only)
-7. Proactivity cron scheduler (only on-demand/slash)
+7. Proactivity cron scheduler — **Now complete:** Gateway runs 30s setInterval calling listDueScheduledJobs and runProactiveJob (apps/gateway/src/main.ts).
 8. Multi-tenant per-tenant isolation (in-memory only)
 9. Streaming tool-call UX (events only at end of stream)
 10. Workflow create from dashboard (API only, no UI form)
@@ -108,7 +108,7 @@ Examples: Project drill-in view, task editing (writes to tasks.md), toast/live u
 
 The next 15 implementation tasks, ordered by dependency:
 
-1. Persist session transcripts server-side (P0)
+1. ~~Persist session transcripts server-side (P0)~~ — **Done:** onComplete → persistSessionHistory in main.ts.
 2. Load FOLDER.md and enforce from file (P0)
 3. Stream tool-call events in SSE (P1)
 4. Task update path (P1)
@@ -117,7 +117,7 @@ The next 15 implementation tasks, ordered by dependency:
 7. Memory promotion to MEMORY.md (P1)
 8. Apply view lens to queries (P2)
 9. Toast or soft-refresh on chat mutation (P1)
-10. Proactivity cron/interval scheduler (P1)
+10. ~~Proactivity cron/interval scheduler (P1)~~ — **Done:** 30s interval in gateway.
 11. Workflow create from dashboard (P2)
 12. Vercel Sandbox adapter (P2)
 13. Workflow step → substrate routing (P2)
@@ -129,9 +129,17 @@ The next 15 implementation tasks, ordered by dependency:
 ## Summary
 
 - **Prompts:** 16 reconstructed and logged.
-- **Features:** 71 total; 38 complete, 18 partial, 3 placeholder, 12 missing.
-- **False positives:** 10 documented.
+- **Features:** 71 total; 57 complete, 18 partial, 3 placeholder, 11 missing (after post-reconciliation update).
+- **False positives:** 10 documented; #1 and #7 updated (session transcript persist done; proactivity scheduler done).
 - **Planning docs:** tasks.md, tasks.jsonl, current-state.md, next-pass.md, feature-ledger.md, prompts/prompt-ledger.md, AGENT.md updated or created.
-- **Next sprint:** 15 tasks in next-pass.md, dependency-ordered.
+- **Next sprint:** 15 tasks in next-pass.md; session persist and proactivity scheduler marked done.
 
 Reconciliation is complete. The codebase is a **high-fidelity prototype** with a clear ledger of what is done, partial, or missing; the next pass is prioritized and documented.
+
+---
+
+## Post-reconciliation updates (2026-03-12)
+
+- **Session transcript persist:** Confirmed complete — streaming path calls `onComplete` → `persistSessionHistory` in `apps/gateway/src/main.ts`. Session list/resume UI remains optional for v0.
+- **Proactivity cron/interval scheduler:** Confirmed complete — gateway runs `setInterval(30_000)` calling `listDueScheduledJobs(Date.now())` and `runProactiveJob` for each due job in `apps/gateway/src/main.ts`.
+- feature-ledger.md, current-state.md, and this report updated to reflect the above.

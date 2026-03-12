@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { ThemeToggle } from "./theme-toggle";
+import { useSidebar } from "./shell";
 import { getProjects, getChannels, createChannel, type ProjectInfo, type ChannelInfo } from "../lib/api";
 import { useChatList } from "./chat-list-context";
 import { ensureChatInList } from "../lib/chat-list";
@@ -134,6 +135,7 @@ export function Nav() {
   const pathname = usePathname();
   const router = useRouter();
   const isChatRoute = pathname === "/" || pathname === "/chat";
+  const { sidebarCollapsed: collapsed, setSidebarCollapsed: setCollapsed } = useSidebar();
   const {
     newChat,
     selectChat,
@@ -147,7 +149,6 @@ export function Nav() {
     refreshList,
   } = useChatList();
 
-  const [collapsed, setCollapsedState] = useState(false);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [channels, setChannels] = useState<ChannelInfo[]>([]);
   const [channelCreateOpen, setChannelCreateOpen] = useState(false);
@@ -164,20 +165,6 @@ export function Nav() {
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, [projectsDropdownOpen]);
-
-  const setCollapsed = useCallback((value: boolean) => {
-    setCollapsedState(value);
-    try {
-      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, value ? "1" : "0");
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      if (stored !== null) setCollapsedState(stored === "1");
-    } catch {}
-  }, []);
 
   useEffect(() => {
     getProjects()

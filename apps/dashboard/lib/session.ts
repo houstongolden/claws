@@ -26,7 +26,7 @@ export function loadHistoryForChat(chatId: string): unknown[] {
   if (typeof window === "undefined") return [];
   try {
     const key = getHistoryStorageKey(chatId);
-    const raw = window.sessionStorage.getItem(key);
+    const raw = window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown[];
     return Array.isArray(parsed) ? parsed : [];
@@ -38,9 +38,9 @@ export function loadHistoryForChat(chatId: string): unknown[] {
 export function saveHistoryForChat(chatId: string, messages: unknown[]): void {
   if (typeof window === "undefined") return;
   try {
-    window.sessionStorage.setItem(getHistoryStorageKey(chatId), JSON.stringify(messages));
+    window.localStorage.setItem(getHistoryStorageKey(chatId), JSON.stringify(messages));
   } catch {
-    // ignore
+    try { window.sessionStorage.setItem(getHistoryStorageKey(chatId), JSON.stringify(messages)); } catch {}
   }
 }
 
@@ -56,7 +56,7 @@ export function createSessionMeta(): SessionMeta {
 export function readSessionMeta(): SessionMeta | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.sessionStorage.getItem(CHAT_SESSION_KEY);
+    const raw = window.localStorage.getItem(CHAT_SESSION_KEY) ?? window.sessionStorage.getItem(CHAT_SESSION_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SessionMeta;
     if (!parsed.chatId || !parsed.workspaceId || !parsed.channel || !parsed.userId) {
@@ -70,7 +70,11 @@ export function readSessionMeta(): SessionMeta | null {
 
 export function persistSessionMeta(meta: SessionMeta): void {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(meta));
+  try {
+    window.localStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(meta));
+  } catch {
+    window.sessionStorage.setItem(CHAT_SESSION_KEY, JSON.stringify(meta));
+  }
 }
 
 export function ensureSessionMeta(): SessionMeta {

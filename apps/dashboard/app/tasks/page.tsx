@@ -174,6 +174,12 @@ export default function TasksPage() {
     load();
   }, [limit, offset]);
 
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener("claws:refresh-context", handler);
+    return () => window.removeEventListener("claws:refresh-context", handler);
+  }, [limit, offset]);
+
   async function handleAppendEvent(e: React.FormEvent) {
     e.preventDefault();
     if (appendBusy) return;

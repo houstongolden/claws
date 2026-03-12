@@ -58,6 +58,22 @@ export async function initRuntimeDb(options: RuntimeDbOptions): Promise<PGlite> 
 }
 
 /**
+ * Initialize PGlite in-memory (no persistence). Use as fallback when initRuntimeDb fails
+ * (e.g. WASM/runtime errors on some systems). Data is lost on restart.
+ */
+export async function initRuntimeDbInMemory(): Promise<PGlite> {
+  db = await PGlite.create();
+  setDb(db);
+  await db.exec(SCHEMA_SQL);
+  await db.exec(CONVERSATIONS_SCHEMA_SQL);
+  await db.exec(INTELLIGENCE_SCHEMA_SQL);
+  await db.exec(CHANNELS_SCHEMA_SQL);
+  await db.exec(PROACTIVITY_SCHEMA_SQL);
+  await db.exec(DECISION_ENGINE_SCHEMA_SQL);
+  return db;
+}
+
+/**
  * Close the database (e.g. on shutdown).
  */
 export async function closeRuntimeDb(): Promise<void> {

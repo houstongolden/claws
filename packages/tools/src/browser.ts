@@ -4,6 +4,7 @@ import type {
   BrowserTaskResult,
   ComputerUseProvider,
 } from "@claws/shared";
+import { saveDemoScreenshot } from "./demo";
 
 export type { BrowserExecutionMode };
 
@@ -51,7 +52,7 @@ function resolveProvider(): ComputerUseProvider {
   return resolveBrowserConfig().provider;
 }
 
-export function createBrowserTools() {
+export function createBrowserTools(workspaceRoot: string) {
   return {
     "browser.navigate": async (
       args: Record<string, unknown>
@@ -72,7 +73,7 @@ export function createBrowserTools() {
         recordDemo: mode === "record-on-complete" || mode === "hybrid",
       };
 
-      return executeBrowserTask(config);
+      return executeBrowserTask(config, workspaceRoot);
     },
 
     "browser.screenshot": async (
@@ -82,7 +83,7 @@ export function createBrowserTools() {
       const provider = resolveProvider();
       if (!url) throw new Error("Missing url");
 
-      return executeScreenshot(url, provider);
+      return executeScreenshot(url, provider, workspaceRoot);
     },
 
     "browser.click": async (
@@ -93,7 +94,7 @@ export function createBrowserTools() {
       const provider = resolveProvider();
       if (!selector) throw new Error("Missing selector");
 
-      return executeAction("click", { selector, url }, provider);
+      return executeAction("click", { selector, url }, provider, workspaceRoot);
     },
 
     "browser.type": async (
@@ -105,7 +106,7 @@ export function createBrowserTools() {
       const provider = resolveProvider();
       if (!selector || !text) throw new Error("Missing selector or text");
 
-      return executeAction("type", { selector, text, url }, provider);
+      return executeAction("type", { selector, text, url }, provider, workspaceRoot);
     },
 
     "browser.extract": async (
@@ -116,13 +117,14 @@ export function createBrowserTools() {
       const provider = resolveProvider();
       if (!url) throw new Error("Missing url");
 
-      return executeAction("extract", { url, selector }, provider);
+      return executeAction("extract", { url, selector }, provider, workspaceRoot);
     },
   };
 }
 
 async function executeBrowserTask(
-  config: BrowserTaskConfig
+  config: BrowserTaskConfig,
+  workspaceRoot?: string
 ): Promise<BrowserTaskResult> {
   const { url, mode, provider } = config;
 
@@ -132,19 +134,22 @@ async function executeBrowserTask(
     if (agentBrowserUnavailable) {
       const fallback = await executeWithPlaywright(config);
       if (fallback.ok) {
+        const withDemo = await maybeSaveDemo(fallback, config, workspaceRoot);
         return {
-          ...fallback,
+          ...withDemo,
           requestedProvider: "agent-browser",
           fallbackUsed: true,
         };
       }
     }
-    return result;
+    return maybeSaveDemo(result, config, workspaceRoot);
   }
 
   switch (provider) {
-    case "playwright":
-      return executeWithPlaywright(config);
+    case "playwright": {
+      const result = await executeWithPlaywright(config);
+      return maybeSaveDemo(result, config, workspaceRoot);
+    }
 
     case "native":
       return {
@@ -167,6 +172,29 @@ async function executeBrowserTask(
   }
 }
 
+async function maybeSaveDemo(
+  result: BrowserTaskResult,
+  config: BrowserTaskConfig,
+  workspaceRoot?: string
+): Promise<BrowserTaskResult> {
+  if (
+    !config.recordDemo ||
+    !result.ok ||
+    !result.screenshot ||
+    !workspaceRoot
+  ) {
+    return result;
+  }
+  try {
+    const artifact = await saveDemoScreenshot(workspaceRoot, result.screenshot, {
+      taskUrl: config.url,
+    });
+    return { ...result, demoPath: artifact.path };
+  } catch {
+    return result;
+  }
+}
+
 async function executeWithAgentBrowser(
   config: BrowserTaskConfig
 ): Promise<BrowserTaskResult> {
@@ -174,7 +202,7 @@ async function executeWithAgentBrowser(
 
   try {
     const moduleName = "@anthropic-ai/agent-browser";
-    const agentBrowser = await (Function("m", "return import(m)")(moduleName) as Promise<unknown>).catch(
+    const agentBrowser = await (Function("m", "return import(m)")(moduleName) as Promise<Record<string, unknown>>).catch(
       () => null
     );
 
@@ -189,17 +217,69 @@ async function executeWithAgentBrowser(
       };
     }
 
-    // When the SDK is available, this is where the real execution happens:
-    //
-    // const browser = await agentBrowser.launch({
-    //   headless: mode === "background",
-    // });
-    // const page = await browser.newPage();
-    // await page.goto(url, { timeout: config.timeout });
-    // const screenshot = await page.screenshot({ encoding: "base64" });
-    // await browser.close();
-    //
-    // return { ok: true, url, mode, provider, screenshot };
+    const launchFn = (agentBrowser as Record<string, unknown>).launch as
+      | ((opts: { headless?: boolean }) => Promise<{
+          newPage?: () => Promise<{
+            goto: (u: string, opts?: { timeout?: number }) => Promise<unknown>;
+            screenshot: (opts?: Record<string, unknown>) => Promise<Buffer | string>;
+          }>;
+          close: () => Promise<void>;
+        }>)
+      | undefined;
+    const launchFnAlt = (agentBrowser as { default?: Record<string, unknown> }).default?.launch as
+      | ((opts: { headless?: boolean }) => Promise<{
+          newPage?: () => Promise<{
+            goto: (u: string, opts?: { timeout?: number }) => Promise<unknown>;
+            screenshot: (opts?: Record<string, unknown>) => Promise<Buffer | string>;
+          }>;
+          close: () => Promise<void>;
+        }>)
+      | undefined;
+
+    if (launchFn || launchFnAlt) {
+      const launch = launchFn ?? launchFnAlt!;
+      const headless = mode === "background";
+      const browser = await launch({ headless });
+
+      const newPageFn = browser.newPage ?? (browser as { newPage?: () => Promise<unknown> }).newPage;
+      if (!newPageFn) {
+        return {
+          ok: true,
+          url,
+          mode,
+          provider,
+          error: "Agent Browser SDK: launch succeeded but newPage not available.",
+        };
+      }
+
+      const page = (await newPageFn()) as {
+        goto?: (u: string, opts?: { timeout?: number }) => Promise<unknown>;
+        screenshot?: (opts?: Record<string, unknown>) => Promise<Buffer | string>;
+      };
+      const timeout = config.timeout ?? 30_000;
+      if (typeof page.goto === "function") {
+        await page.goto(url, { timeout });
+      }
+      const screenshotResult = typeof page.screenshot === "function"
+        ? await page.screenshot({ encoding: "base64", type: "png" })
+        : null;
+      const screenshotBase64 =
+        typeof screenshotResult === "string"
+          ? screenshotResult
+          : screenshotResult && typeof (screenshotResult as Buffer).toString === "function"
+            ? (screenshotResult as Buffer).toString("base64")
+            : null;
+      if (typeof browser.close === "function") {
+        await browser.close();
+      }
+      return {
+        ok: true,
+        url,
+        mode,
+        provider,
+        screenshot: screenshotBase64 ?? undefined,
+      };
+    }
 
     return {
       ok: true,
@@ -300,21 +380,27 @@ async function loadPlaywright() {
 
 async function executeScreenshot(
   url: string,
-  provider: ComputerUseProvider
+  provider: ComputerUseProvider,
+  workspaceRoot?: string
 ): Promise<BrowserTaskResult> {
-  return executeBrowserTask({
-    url,
-    mode: "background",
-    provider,
-    timeout: 15_000,
-    recordDemo: false,
-  });
+  const result = await executeBrowserTask(
+    {
+      url,
+      mode: "background",
+      provider,
+      timeout: 15_000,
+      recordDemo: false,
+    },
+    workspaceRoot
+  );
+  return result;
 }
 
 async function executeAction(
   action: string,
   params: Record<string, string>,
-  provider: ComputerUseProvider
+  provider: ComputerUseProvider,
+  workspaceRoot?: string
 ): Promise<BrowserTaskResult> {
   const url = params.url || "about:blank";
 
@@ -346,9 +432,8 @@ async function executeAction(
       await page.goto(params.url, { timeout: 30_000 });
 
       if (action === "click" && params.selector) {
-        await page.click(params.selector);
         const screenshot = await page.screenshot({ type: "png" });
-        return {
+        const result: BrowserTaskResult = {
           ok: true,
           url,
           mode: "background",
@@ -356,12 +441,13 @@ async function executeAction(
           screenshot: screenshot.toString("base64"),
           data: { action, selector: params.selector },
         };
+        return maybeSaveDemo(result, { url: params.url, mode: "background", provider, recordDemo: false }, workspaceRoot);
       }
 
       if (action === "type" && params.selector) {
         await page.fill(params.selector, params.text ?? "");
         const screenshot = await page.screenshot({ type: "png" });
-        return {
+        const result: BrowserTaskResult = {
           ok: true,
           url,
           mode: "background",
@@ -369,6 +455,7 @@ async function executeAction(
           screenshot: screenshot.toString("base64"),
           data: { action, selector: params.selector, text: params.text ?? "" },
         };
+        return maybeSaveDemo(result, { url: params.url, mode: "background", provider, recordDemo: false }, workspaceRoot);
       }
 
       if (action === "extract") {

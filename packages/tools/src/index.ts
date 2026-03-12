@@ -65,7 +65,7 @@ export function registerDefaultTools(registry: ToolRegistry, workspaceRoot: stri
     createFsTools(workspace),
     createTaskTools(workspace),
     createMemoryTools(workspaceRoot),
-    createBrowserTools(),
+    createBrowserTools(workspaceRoot),
     createSandboxTools(),
     createDemoTools(workspaceRoot),
     {

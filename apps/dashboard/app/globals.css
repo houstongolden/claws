@@ -227,3 +227,7 @@ code, kbd, pre, [data-code] {
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
 }
+
+/* Chat markdown styles */
+.chat-md > *:first-child { margin-top: 0; }
+.chat-md > *:last-child { margin-bottom: 0; }

@@ -1,4 +1,5 @@
 import http from "node:http";
+import path from "node:path";
 import type { AddressInfo } from "node:net";
 import type { StaticRouter } from "@claws/core/router";
 import type { WorkflowRun, WorkflowDefinition, TenantConfig } from "@claws/shared/types";
@@ -73,7 +74,7 @@ export type GatewayRuntime = {
     chatId?: string;
     threadId?: string;
   }) => Promise<unknown>;
-  getTaskEvents?: (input?: { limit?: number; offset?: number }) => Promise<unknown[]>;
+  getTaskEvents?: (input?: { limit?: number; offset?: number; view?: string; project_slug?: string }) => Promise<unknown[]>;
   appendTaskEvent?: (input: { event: Record<string, unknown> }) => Promise<unknown>;
   resetState?: () => Promise<unknown>;
   listWorkflows?: () => Promise<WorkflowRun[]>;
@@ -95,7 +96,7 @@ export type GatewayRuntime = {
   listTenants?: () => TenantConfig[];
   getTenant?: (idOrSlug: string) => TenantConfig | undefined;
   registerTenant?: (config: TenantConfig) => void;
-  scanProjects?: () => Promise<Array<{
+  scanProjects?: (input?: { project_slug?: string }) => Promise<Array<{
     name: string;
     slug: string;
     path: string;
@@ -172,7 +173,9 @@ async function readBody(req: http.IncomingMessage): Promise<unknown> {
   try {
     return JSON.parse(raw);
   } catch {
-    return raw;
+    // Invalid JSON (e.g. client sent object without stringifying -> "[object Object]").
+    // Return null so routes treat as missing body and return 400 where appropriate.
+    return null;
   }
 }
 
@@ -203,6 +206,182 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
             tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name },
           }
         });
+      }
+
+      if (pathname === "/api/env" && req.method === "GET") {
+        const ENV_KEYS = [
+          { key: "AI_GATEWAY_API_KEY", group: "AI", sensitive: true, desc: "Primary API key for Vercel AI Gateway routing" },
+          { key: "OPENAI_API_KEY", group: "AI", sensitive: true, desc: "Fallback key for direct OpenAI routing" },
+          { key: "ANTHROPIC_API_KEY", group: "AI", sensitive: true, desc: "Fallback key for direct Anthropic routing" },
+          { key: "AI_MODEL", group: "AI", sensitive: false, desc: "Model name (default: gpt-4o-mini)" },
+          { key: "AI_GATEWAY_URL", group: "AI", sensitive: false, desc: "Custom AI Gateway URL (optional)" },
+          { key: "OPENROUTER_API_KEY", group: "AI", sensitive: true, desc: "OpenRouter API key for multi-model routing" },
+          { key: "V0_API_KEY", group: "AI", sensitive: true, desc: "V0 Platform API key" },
+          { key: "CLAWS_PORT", group: "Runtime", sensitive: false, desc: "Gateway port (default: 4317)" },
+          { key: "DASHBOARD_PORT", group: "Runtime", sensitive: false, desc: "Dashboard port (default: 4318)" },
+          { key: "CLAWS_DEFAULT_VIEW", group: "Runtime", sensitive: false, desc: "Default primary view (default: founder)" },
+          { key: "CLAWS_BROWSER_PROVIDER", group: "Execution", sensitive: false, desc: "Browser provider (agent-browser | playwright | native)" },
+          { key: "CLAWS_BROWSER_DEFAULT_MODE", group: "Execution", sensitive: false, desc: "Default visibility mode" },
+          { key: "CLAWS_SANDBOX_ENABLED", group: "Execution", sensitive: false, desc: "Enable sandbox execution (true | false)" },
+          { key: "CLAWS_SANDBOX_PROVIDER", group: "Execution", sensitive: false, desc: "Sandbox provider (vercel | local | none)" },
+          { key: "AGENT_BROWSER_NATIVE", group: "Execution", sensitive: false, desc: "Use native Agent Browser (1 | 0)" },
+          { key: "VERCEL_PROJECT_ID", group: "Hosting", sensitive: false, desc: "Vercel project ID for workflow/sandbox adapters" },
+          { key: "VERCEL_API_TOKEN", group: "Hosting", sensitive: true, desc: "Vercel API token for hosted adapters" },
+          { key: "TELEGRAM_BOT_TOKEN", group: "Integrations", sensitive: true, desc: "Telegram bot token for inbound channel" },
+        ];
+        const vars = ENV_KEYS.map((v) => {
+          const raw = process.env[v.key];
+          const isSet = raw !== undefined && raw !== "";
+          let redacted: string | null = null;
+          if (isSet && raw) {
+            if (v.sensitive) {
+              redacted = raw.length > 8 ? raw.slice(0, 4) + "••••" + raw.slice(-4) : "••••••••";
+            } else {
+              redacted = raw;
+            }
+          }
+          return { ...v, isSet, redacted };
+        });
+        return json(res, 200, { ok: true, vars });
+      }
+
+      if (pathname === "/api/env/raw" && req.method === "GET") {
+        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const envPath = path.join(wsRoot, ".env.local");
+        try {
+          const fs = await import("node:fs/promises");
+          const content = await fs.readFile(envPath, "utf-8");
+          return json(res, 200, { ok: true, content });
+        } catch {
+          return json(res, 200, { ok: true, content: "" });
+        }
+      }
+
+      if (pathname === "/api/env" && req.method === "POST") {
+        const body = await readBody(req);
+        const { content } = body as { content?: string };
+        if (typeof content !== "string") return json(res, 400, { ok: false, error: "content required" });
+        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const envPath = path.join(wsRoot, ".env.local");
+        const backupPath = path.join(wsRoot, ".env.local.bak");
+        try {
+          const fs = await import("node:fs/promises");
+          try { await fs.copyFile(envPath, backupPath); } catch {}
+          await fs.writeFile(envPath, content, "utf-8");
+          return json(res, 200, { ok: true, message: "Saved .env.local (backup at .env.local.bak)" });
+        } catch (err) {
+          return json(res, 500, { ok: false, error: err instanceof Error ? err.message : "Write failed" });
+        }
+      }
+
+      if (pathname === "/api/restart" && req.method === "POST") {
+        json(res, 200, { ok: true, message: "Restarting gateway..." });
+        setTimeout(() => process.exit(0), 200);
+        return;
+      }
+
+      if (pathname === "/api/cli/open" && req.method === "POST") {
+        const body = (await readBody(req)) as { command?: string } | null;
+        const cmd = body?.command ?? "tui";
+        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const cliPath = path.join(wsRoot, "packages/cli/bin/claws.mjs");
+        try {
+          const { exec } = await import("node:child_process");
+          const platform = process.platform;
+          let termCmd: string;
+          if (platform === "darwin") {
+            termCmd = `osascript -e 'tell application "Terminal" to do script "cd ${wsRoot} && node ${cliPath} ${cmd}"'`;
+          } else if (platform === "linux") {
+            termCmd = `x-terminal-emulator -e "cd ${wsRoot} && node ${cliPath} ${cmd}" &`;
+          } else {
+            termCmd = `start cmd /k "cd /d ${wsRoot} && node ${cliPath} ${cmd}"`;
+          }
+          exec(termCmd, (err) => {
+            if (err) console.warn("CLI launch warning:", err.message);
+          });
+          return json(res, 200, { ok: true, message: `Opening Claws ${cmd}…`, command: termCmd });
+        } catch (err) {
+          return json(res, 500, { ok: false, error: err instanceof Error ? err.message : "Launch failed" });
+        }
+      }
+
+      if (pathname === "/api/system/info" && req.method === "GET") {
+        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const fs = await import("node:fs/promises");
+
+        let currentVersion = "0.1.0";
+        try {
+          const pkg = JSON.parse(await fs.readFile(path.join(wsRoot, "package.json"), "utf-8"));
+          currentVersion = pkg.version ?? currentVersion;
+        } catch {}
+
+        let dashboardModified = false;
+        try {
+          const stat = await fs.stat(path.join(wsRoot, ".claws/dashboard-custom"));
+          dashboardModified = stat.isFile() || stat.isDirectory();
+        } catch {
+          try {
+            const cp = await import("node:child_process");
+            const gitOut = await new Promise<string>((resolve, reject) => {
+              cp.exec("git diff --name-only HEAD -- apps/dashboard/", { cwd: wsRoot }, (err, stdout) => {
+                if (err) reject(err); else resolve(stdout);
+              });
+            });
+            dashboardModified = gitOut.trim().length > 0;
+          } catch { dashboardModified = false; }
+        }
+
+        let cloudSyncEnabled = true;
+        try {
+          const syncPref = await fs.readFile(path.join(wsRoot, ".claws/sync-disabled"), "utf-8").catch(() => null);
+          if (syncPref !== null) cloudSyncEnabled = false;
+        } catch {}
+
+        let latestVersion: string | null = null;
+        try {
+          const npmRes = await fetch("https://registry.npmjs.org/@claws-so/cli/latest", {
+            signal: AbortSignal.timeout(3000),
+          });
+          if (npmRes.ok) {
+            const data = (await npmRes.json()) as { version?: string };
+            latestVersion = data.version ?? null;
+          }
+        } catch {}
+
+        return json(res, 200, {
+          ok: true,
+          version: currentVersion,
+          latestVersion,
+          updateAvailable: latestVersion != null && latestVersion !== currentVersion,
+          cloudSync: {
+            enabled: cloudSyncEnabled,
+            lastSynced: null,
+            status: cloudSyncEnabled ? "idle" : "disabled",
+          },
+          dashboard: {
+            isCustom: dashboardModified,
+            templateVersion: currentVersion,
+          },
+        });
+      }
+
+      if (pathname === "/api/system/cloud-sync" && req.method === "POST") {
+        const body = (await readBody(req)) as { enabled?: boolean } | null;
+        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const fs = await import("node:fs/promises");
+        const marker = path.join(wsRoot, ".claws/sync-disabled");
+        try {
+          if (body?.enabled === false) {
+            await fs.mkdir(path.join(wsRoot, ".claws"), { recursive: true });
+            await fs.writeFile(marker, "Cloud sync disabled by user", "utf-8");
+            return json(res, 200, { ok: true, enabled: false });
+          } else {
+            await fs.rm(marker, { force: true });
+            return json(res, 200, { ok: true, enabled: true });
+          }
+        } catch (err) {
+          return json(res, 500, { ok: false, error: err instanceof Error ? err.message : "Failed" });
+        }
       }
 
       if (pathname === "/api/traces" && req.method === "GET") {
@@ -286,7 +465,9 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
       if (pathname === "/api/tasks/events" && req.method === "GET") {
         const limit = Number(requestUrl.searchParams.get("limit") ?? 120);
         const offset = Number(requestUrl.searchParams.get("offset") ?? 0);
-        const events = await runtime?.getTaskEvents?.({ limit, offset });
+        const view = requestUrl.searchParams.get("view") ?? undefined;
+        const project_slug = requestUrl.searchParams.get("project_slug") ?? undefined;
+        const events = await runtime?.getTaskEvents?.({ limit, offset, view, project_slug });
         return json(res, 200, { ok: true, events: events ?? [] });
       }
 
@@ -895,7 +1076,8 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
 
       // Workspace project directory scanner
       if (pathname === "/api/projects" && req.method === "GET") {
-        const projects = await runtime?.scanProjects?.();
+        const project_slug = requestUrl.searchParams.get("project_slug") ?? undefined;
+        const projects = await runtime?.scanProjects?.({ project_slug });
         return json(res, 200, { ok: true, projects: projects ?? [] });
       }
 
@@ -913,7 +1095,9 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
       return json(res, 404, { ok: false, error: "Not found" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown gateway error";
-      return json(res, 500, { ok: false, error: message });
+      // Avoid surfacing raw JSON parse errors (e.g. "[object Object] is not valid JSON")
+      const safeMessage = message.includes("is not valid JSON") ? "Invalid JSON in request body" : message;
+      return json(res, message.includes("is not valid JSON") ? 400 : 500, { ok: false, error: safeMessage });
     }
   });
 
