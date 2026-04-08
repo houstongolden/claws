@@ -16,6 +16,10 @@ const WHITE = "\x1b[37m";
 const BG_CYAN = "\x1b[46m";
 const BG_BLACK = "\x1b[40m";
 
+/* DESIGN.md v2 — 256-color approximation of brand red #ff3344 (xterm 203) */
+const BRAND = "\x1b[38;5;203m";
+const BRAND_DIM = "\x1b[38;5;88m";
+
 const isTTY = process.stdout.isTTY !== false;
 const isColorEnabled =
   process.env.NO_COLOR === undefined &&
@@ -37,8 +41,10 @@ export const fmt = {
   magenta: (t) => c(MAGENTA, t),
   gray: (t) => c(GRAY, t),
   white: (t) => c(WHITE, t),
+  brand: (t) => c(BRAND, t),
+  brandDim: (t) => c(BRAND_DIM, t),
   ok: (t) => c(GREEN, `  ✓ ${t}`),
-  fail: (t) => c(RED, `  ✗ ${t}`),
+  fail: (t) => c(BRAND, `  ✗ ${t}`),
   warn: (t) => c(YELLOW, `  ⚠ ${t}`),
   info: (t) => c(CYAN, `  → ${t}`),
   dot: (t) => c(GRAY, `  · ${t}`),
@@ -46,13 +52,13 @@ export const fmt = {
 
 // ─── Logo ────────────────────────────────────────────────────────
 const LOGO = `
-    ${c(CYAN, "   ╱╲")}
-    ${c(CYAN, "  ╱  ╲")}  ${c(BOLD, "Claws")}
-    ${c(CYAN, " ╱ ᐳᐸ ╲")} ${c(DIM, "AI OS")}
-    ${c(CYAN, "╱──────╲")}
+    🦞  ${c(BOLD, "Claws")} ${c(DIM, "v0.1")}
+    ${c(BRAND_DIM, "───")}
+    ${c(DIM, "the front-end framework for openclaw uis")}
+    ${c(DIM, "plus an experimental agent os for vercelians")}
 `;
 
-const LOGO_SMALL = `${c(CYAN, "ᐳᐸ")} ${c(BOLD, "Claws")}`;
+const LOGO_SMALL = `🦞 ${c(BOLD, "claws")}`;
 
 export function logo() {
   console.log(LOGO);

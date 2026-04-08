@@ -1,32 +1,114 @@
 @import "tailwindcss";
 
+/* ──────────────────────────────────────────────────────────────
+   Claws Design Tokens — DESIGN.md v2
+   Mirrored from apps/web/app/globals.css — keep these in sync.
+   ────────────────────────────────────────────────────────────── */
+
 :root {
-  --bg: #000000;
-  --fg: #ededed;
-  --muted: #737373;
-  --surface-1: #0a0a0a;
-  --surface-2: #141414;
-  --surface-3: #1f1f1f;
-  --brand: #ff3344;
-  --brand-hover: #ff4d5c;
+  --color-bg:            #000000;
+  --color-surface-1:     #0a0a0a;
+  --color-surface-2:     #141414;
+  --color-surface-3:     #1f1f1f;
+
+  --color-text-primary:   #ededed;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted:     #737373;
+  --color-text-ghost:     #555555;
+
+  --color-brand:          #ff3344;
+  --color-brand-hover:    #ff4d5c;
+  --color-brand-dim:      #7a1921;
+
+  --color-success:        #30a46c;
+  --color-warning:        #f5a623;
+  --color-info:           #4a9eff;
+  --color-error:          #ff3344;
+
+  --color-agent-idle:     #737373;
+  --color-agent-working:  #4a9eff;
+  --color-agent-blocked:  #f5a623;
+  --color-agent-done:     #30a46c;
+  --color-agent-error:    #ff3344;
+
+  --font-sans: 'Geist Sans', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-full: 9999px;
 }
 
 * { box-sizing: border-box; }
 
-body {
-  background: var(--bg);
-  color: var(--fg);
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
-  font-feature-settings: "rlig" 1, "calt" 1;
-  -webkit-font-smoothing: antialiased;
-  font-size: 14px;
-  line-height: 1.5;
+html, body {
+  background: var(--color-bg);
+  color: var(--color-text-primary);
 }
 
-code, pre {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
+body {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "rlig" 1, "calt" 1;
+  letter-spacing: -0.01em;
+}
+
+code, pre, kbd, samp, .mono {
+  font-family: var(--font-mono);
+  letter-spacing: -0.003em;
+}
+
+h1, h2, h3, h4 {
+  letter-spacing: -0.025em;
+  font-weight: 700;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--brand) 35%, transparent);
+  background: color-mix(in srgb, var(--color-brand) 35%, transparent);
+  color: var(--color-text-primary);
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-3);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-bg);
+}
+::-webkit-scrollbar-thumb:hover { background: #2a2a2a; }
+
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px color-mix(in srgb, var(--color-brand) 45%, transparent);
+  border-radius: var(--radius-sm);
+}
+
+.agent-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.agent-dot[data-state="idle"]    { background: var(--color-agent-idle); }
+.agent-dot[data-state="working"] { background: var(--color-agent-working); animation: agent-pulse 2s ease-in-out infinite; }
+.agent-dot[data-state="blocked"] { background: var(--color-agent-blocked); }
+.agent-dot[data-state="done"]    { background: var(--color-agent-done); }
+.agent-dot[data-state="error"]   { background: var(--color-agent-error); }
+
+@keyframes agent-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

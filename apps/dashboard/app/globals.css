@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* ──────────────────────────────────────────────────────────────
+   Claws Design Tokens — DESIGN.md v2
+   These are the AUTHORITATIVE tokens. Existing legacy vars below
+   map onto these for backwards compat with older components.
+   New components should use --color-* tokens directly.
+   ────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Shared DESIGN.md v2 tokens — valid in both light and dark mode */
+  --color-brand:       #ff3344;
+  --color-brand-hover: #ff4d5c;
+  --color-brand-dim:   #7a1921;
+
+  --color-agent-idle:     #737373;
+  --color-agent-working:  #4a9eff;
+  --color-agent-blocked:  #f5a623;
+  --color-agent-done:     #30a46c;
+  --color-agent-error:    #ff3344;
+
+  --font-sans-v2: 'Geist Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono-v2: 'Geist Mono', 'JetBrains Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
+}
+
 /* Light theme (default) — calm, high-contrast surfaces (Apple/OpenAI-adjacent) */
 :root {
   --background: #f7f7f8;
@@ -92,6 +115,21 @@
 
 /* Dark theme */
 .dark {
+  /* DESIGN.md v2 dark tokens — authoritative */
+  --color-bg:             #000000;
+  --color-surface-1:      #0a0a0a;
+  --color-surface-2:      #141414;
+  --color-surface-3:      #1f1f1f;
+  --color-text-primary:   #ededed;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted:     #737373;
+  --color-text-ghost:     #555555;
+  --color-success:        #30a46c;
+  --color-warning:        #f5a623;
+  --color-info:           #4a9eff;
+  --color-error:          #ff3344;
+
+  /* Legacy dashboard vars (kept for existing component compat) */
   --background: #000000;
   --foreground: #ededed;
 

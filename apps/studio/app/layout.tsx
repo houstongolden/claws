@@ -1,27 +1,25 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Claws Studio",
-  description: "Visual template builder for OpenClaw UIs",
+  description:
+    "The visual control room for building dashboards on top of OpenClaw or the experimental Claws agent OS.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
-        />
-      </head>
+    <html
+      lang="en"
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      style={{
+        ["--font-sans" as string]: `${GeistSans.style.fontFamily}, system-ui, sans-serif`,
+        ["--font-mono" as string]: `${GeistMono.style.fontFamily}, ui-monospace, monospace`,
+      }}
+    >
       <body>{children}</body>
     </html>
   );

@@ -65,59 +65,71 @@ export function LivePanel() {
   }, []);
 
   const live = status?.ok === true;
+  const pendingApprovals = status?.status?.approvals?.pending ?? 0;
 
   return (
-    <section className="mb-12">
+    <section className="mb-16">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Live Gateway</h2>
+        <div
+          className="mono text-[10px] uppercase tracking-wider"
+          style={{ color: "var(--color-text-muted)" }}
+        >
+          // live-gateway
+        </div>
         <StatusBadge live={live} />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Stat label="Protocol version" value={String(PROTOCOL_VERSION)} />
-        <Stat label="SDK RPC methods" value={Object.keys(METHODS).length.toString()} />
-        <Stat label="SDK events" value={Object.keys(EVENTS).length.toString()} />
+      <div className="grid gap-2 md:grid-cols-3">
+        <Stat
+          label="protocol"
+          value={String(PROTOCOL_VERSION)}
+        />
+        <Stat
+          label="rpc methods"
+          value={Object.keys(METHODS).length.toString()}
+        />
+        <Stat label="events" value={Object.keys(EVENTS).length.toString()} />
       </div>
 
       {live && status?.status && (
         <>
-          <div className="mt-4 grid gap-4 md:grid-cols-4">
+          <div className="mt-2 grid gap-2 md:grid-cols-4">
             <Stat
-              label="Model"
-              value={status.status.ai?.model ?? "unknown"}
+              label="model"
+              value={status.status.ai?.model ?? "-"}
               small
             />
             <Stat
-              label="Provider"
+              label="provider"
               value={status.status.ai?.provider ?? "-"}
               small
             />
             <Stat
-              label="Tools"
+              label="tools"
               value={(status.status.registeredTools?.length ?? 0).toString()}
               small
             />
             <Stat
-              label="Agents"
+              label="agents"
               value={(status.status.agents?.length ?? 0).toString()}
               small
             />
           </div>
 
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="mt-2 grid gap-2 md:grid-cols-3">
             <Stat
-              label="Workflows"
+              label="workflows"
               value={(status.status.workflows?.count ?? 0).toString()}
               small
             />
             <Stat
-              label="Pending approvals"
-              value={(status.status.approvals?.pending ?? 0).toString()}
+              label="pending approvals"
+              value={pendingApprovals.toString()}
               small
-              accent={(status.status.approvals?.pending ?? 0) > 0}
+              accent={pendingApprovals > 0}
             />
             <Stat
-              label="Traces"
+              label="traces"
               value={(status.status.traces?.count ?? 0).toString()}
               small
             />
@@ -126,31 +138,55 @@ export function LivePanel() {
       )}
 
       {!live && (
-        <div className="mt-4 rounded-xl border border-[#1f1f1f] bg-[#0a0a0a] p-6">
-          <div className="text-sm text-[#a3a3a3]">
+        <div
+          className="mt-3 rounded-md border p-5"
+          style={{
+            borderColor: "var(--color-surface-3)",
+            background: "var(--color-surface-1)",
+          }}
+        >
+          <div
+            className="text-[13px]"
+            style={{ color: "var(--color-text-secondary)" }}
+          >
             Gateway not reachable at{" "}
-            <code className="rounded bg-[#141414] px-1.5 py-0.5 text-[#737373]">
+            <code
+              className="mono rounded px-1.5 py-0.5 text-[11px]"
+              style={{
+                background: "var(--color-bg)",
+                color: "var(--color-text-muted)",
+              }}
+            >
               {gatewayUrl || "http://localhost:4317"}
             </code>
             {error && (
               <>
                 {" "}
-                <span className="text-[#737373]">({error})</span>
+                <span
+                  className="mono text-[11px]"
+                  style={{ color: "var(--color-text-ghost)" }}
+                >
+                  ({error})
+                </span>
               </>
             )}
           </div>
-          <div className="mt-3 text-xs text-[#737373]">
-            Start the experimental OS:{" "}
-            <code className="rounded bg-[#141414] px-1.5 py-0.5 text-[#ff3344]">
-              pnpm gateway
-            </code>
+          <div
+            className="mono mt-3 text-[11px]"
+            style={{ color: "var(--color-text-ghost)" }}
+          >
+            $ <span style={{ color: "var(--color-brand)" }}>pnpm gateway</span>
           </div>
         </div>
       )}
 
       {lastUpdate > 0 && (
-        <div className="mt-3 text-xs text-[#555]">
-          Last update: {new Date(lastUpdate).toLocaleTimeString()} · Polling every 3s
+        <div
+          className="mono mt-3 text-[10px]"
+          style={{ color: "var(--color-text-ghost)" }}
+        >
+          // last update: {new Date(lastUpdate).toLocaleTimeString()} · polling
+          every 3s
         </div>
       )}
     </section>
@@ -160,25 +196,25 @@ export function LivePanel() {
 function StatusBadge({ live }: { live: boolean }) {
   return (
     <div
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
-        live
-          ? "border-[#30a46c]/30 bg-[#30a46c]/10 text-[#30a46c]"
-          : "border-[#1f1f1f] bg-[#0a0a0a] text-[#737373]"
-      }`}
+      className="mono inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider"
+      style={{
+        borderColor: live
+          ? "color-mix(in srgb, var(--color-success) 35%, transparent)"
+          : "var(--color-surface-3)",
+        background: live
+          ? "color-mix(in srgb, var(--color-success) 8%, transparent)"
+          : "var(--color-surface-1)",
+        color: live ? "var(--color-success)" : "var(--color-text-muted)",
+      }}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          live ? "bg-[#30a46c]" : "bg-[#737373]"
-        }`}
-        style={
-          live
-            ? {
-                animation: "pulse 2s ease-in-out infinite",
-              }
-            : undefined
-        }
+        className="h-1.5 w-1.5 rounded-full"
+        style={{
+          background: live ? "var(--color-success)" : "var(--color-text-muted)",
+          animation: live ? "agent-pulse 2s ease-in-out infinite" : undefined,
+        }}
       />
-      {live ? "Connected" : "Offline"}
+      {live ? "online" : "offline"}
     </div>
   );
 }
@@ -196,19 +232,32 @@ function Stat({
 }) {
   return (
     <div
-      className={`rounded-lg border p-4 ${
-        accent
-          ? "border-[#ff3344]/40 bg-[#ff3344]/5"
-          : "border-[#1f1f1f] bg-[#141414]"
-      }`}
+      className="rounded-md border p-4"
+      style={{
+        borderColor: accent
+          ? "color-mix(in srgb, var(--color-brand) 40%, transparent)"
+          : "var(--color-surface-3)",
+        background: accent
+          ? "color-mix(in srgb, var(--color-brand) 5%, var(--color-surface-1))"
+          : "var(--color-surface-1)",
+      }}
     >
-      <div className="text-xs uppercase tracking-wide text-[#737373]">
+      <div
+        className="mono text-[10px] uppercase tracking-wider"
+        style={{ color: "var(--color-text-muted)" }}
+      >
         {label}
       </div>
       <div
-        className={`mt-2 font-mono ${small ? "text-lg" : "text-2xl"} ${
-          accent ? "text-[#ff3344]" : "text-[#ededed]"
+        className={`mono mt-1.5 font-semibold ${
+          small ? "text-[16px]" : "text-[22px]"
         }`}
+        style={{
+          color: accent
+            ? "var(--color-brand)"
+            : "var(--color-text-primary)",
+          letterSpacing: "-0.01em",
+        }}
       >
         {value}
       </div>

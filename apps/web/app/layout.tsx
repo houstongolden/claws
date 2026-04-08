@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,24 +26,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body
-        style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
-      >
-        {children}
-      </body>
+    <html
+      lang="en"
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      style={{
+        // Override the tokens to use Geist via next/font
+        ["--font-sans" as string]: `${GeistSans.style.fontFamily}, system-ui, sans-serif`,
+        ["--font-mono" as string]: `${GeistMono.style.fontFamily}, ui-monospace, monospace`,
+      }}
+    >
+      <body>{children}</body>
     </html>
   );
 }
