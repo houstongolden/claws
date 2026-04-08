@@ -1,0 +1,101 @@
+hub:
+  version: "2.0"
+  id: "{{HUB_ID}}"
+  name: "{{USERNAME}}'s Dev OS"
+  owner: "{{USERNAME}}"
+  template: "dev-os"
+  template_version: "1.3.0"
+  created: "2026-02-20T00:00:00Z"
+
+# What this workspace is for
+description: "Developer AI OS — GitHub, CI/CD, code review, and shipping velocity in one place."
+
+subdomain: "{{SUBDOMAIN}}"
+
+intelligence:
+  global: "opt-in"
+  org: null
+
+agents: []
+
+memory:
+  hub_id: "{{HUB_ID}}"
+  retention_days: 365
+
+context:
+  reserved_files:
+    - AGENTS.md
+    - SOUL.md
+    - USER.md
+    - MEMORY.md
+    - HEARTBEAT.md
+    - WELCOME.md
+  memory_dir: "./memory"
+  learnings_dir: "./learnings"
+  knowledge_dir: "./knowledge"
+  skills_dir: "./skills"
+
+# Agent configuration
+agent:
+  model: "anthropic/claude-sonnet-4-6"
+  heartbeat: "30m"
+  channels:
+    - telegram
+  thinking: false
+  proactive: true
+
+models:
+  default: "anthropic/claude-sonnet-4-6"
+  routing:
+    orchestrator: "anthropic/claude-sonnet-4-6"
+    coder: "anthropic/claude-opus-4-5"
+    reviewer: "anthropic/claude-sonnet-4-6"
+    automation: "anthropic/claude-haiku-4-5"
+  free_tier:
+    - "anthropic/claude-haiku-4-5"
+
+vault:
+  id: ""
+
+# Pre-configured integrations — user connects these during onboarding
+integrations:
+  - id: telegram
+    status: pending
+    description: "Alerts for CI failures, PR reviews, and deploy status"
+  - id: github
+    status: pending
+    description: "PRs, issues, CI/CD monitoring — primary integration"
+
+# Skills pre-installed in this workspace
+skills:
+  registry: "hubify"
+  installed:
+    - morning-brief
+    - meeting-notes
+    - quick-capture
+    - web-research
+    - email-draft
+    - github
+    - coding-agent
+    - things-mac
+    - session-logs
+
+# Deployed squads — populated when user deploys a squad pack via web UI
+squads: []
+
+# Knowledge subscriptions — platform hubs this workspace receives insights from
+subscriptions: []
+
+privacy:
+  contribute_to_global: false
+  vault_shared_across_workspaces: true
+
+mode: "guided"
+
+# Dev OS specific settings
+devos:
+  focus: "coding"
+  github_integration: true
+  ci_cd_monitoring: true
+  pr_review_assist: true
+  branch_hygiene: true

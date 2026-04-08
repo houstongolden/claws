@@ -1,0 +1,15 @@
+{
+  "name": "@claws/backend-convex",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Claws backend — Convex functions for templates, workspaces, studio sessions, and Fly.io provisioning. Salvaged from hubify in Phase A; needs adaptation before running.",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Convex backend in salvage state — needs new Convex project or adapter. See project-context/PRDv2-2026-04-08.md Phase A.' && exit 0",
+    "build": "echo 'Backend not yet wired — skip' && exit 0",
+    "typecheck": "echo 'Backend typecheck skipped in salvage state' && exit 0",
+    "lint": "echo lint backend-convex",
+    "test": "echo test backend-convex",
+    "clean": "echo clean backend-convex"
+  }
+}

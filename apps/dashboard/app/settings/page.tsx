@@ -276,10 +276,10 @@ export default function SettingsPage() {
           </Button>
         }
       />
-      <PageContent>
-        <div className="flex gap-0 min-h-[600px]">
+      <PageContent className="!p-0 sm:!px-5 md:!px-8">
+        <div className="flex flex-col lg:flex-row gap-0 min-h-[600px] lg:items-start">
           {/* Vertical sidebar nav */}
-          <nav className="shrink-0 w-48 border-r border-border pr-4 space-y-0.5">
+          <nav className="shrink-0 w-full lg:w-56 border-b lg:border-b-0 lg:border-r border-border/60 lg:pr-6 space-y-0.5 sticky top-0 self-start py-4 px-5 lg:px-0 lg:py-6 bg-muted/20 lg:bg-transparent">
             {SECTIONS.map((s) => {
               const Icon = s.icon;
               return (
@@ -288,10 +288,10 @@ export default function SettingsPage() {
                   type="button"
                   onClick={() => setSection(s.id)}
                   className={cn(
-                    "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-left transition-colors",
+                    "w-full flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-[13px] text-left motion-safe:transition-colors",
                     section === s.id
-                      ? "bg-muted/60 text-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                      ? "bg-foreground text-background font-semibold shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
                 >
                   <Icon size={14} className="shrink-0" />
@@ -319,7 +319,7 @@ export default function SettingsPage() {
           </nav>
 
           {/* Main content area */}
-          <div className="flex-1 min-w-0 pl-6 space-y-4">
+          <div className="flex-1 min-w-0 px-5 py-6 sm:px-8 lg:pl-10 lg:pr-8 space-y-5 max-w-3xl">
             {loading ? (
               <div className="flex items-center gap-2 text-muted-foreground text-[13px]">
                 <Loader2 size={14} className="animate-spin" /> Loading...
@@ -327,18 +327,18 @@ export default function SettingsPage() {
             ) : null}
 
             {error ? (
-              <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">{error}</div>
+              <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)] leading-relaxed">{error}</div>
             ) : null}
 
             {success ? (
-              <div className="text-[13px] text-success bg-success/10 border border-success/20 rounded-lg px-3 py-2">{success}</div>
+              <div className="text-[13px] text-success bg-success/[0.08] border border-success/20 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">{success}</div>
             ) : null}
 
             {/* Views */}
             {section === "views" ? (
               <div className="space-y-4">
                 <SectionHeading title="Views" description="Session & view preferences. Defaults flow from runtime into each chat thread." />
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-4">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-4">
                   <div>
                     <div className="text-[13px] font-medium mb-2">Primary View</div>
                     <div className="text-[12px] text-muted-foreground mb-2">
@@ -379,7 +379,7 @@ export default function SettingsPage() {
             {section === "runtime" ? (
               <div className="space-y-4">
                 <SectionHeading title="Runtime" description="Current gateway session status. Live local state, not a hosted control plane." />
-                <div className="rounded-lg border border-border bg-surface-1 divide-y divide-border overflow-hidden">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                   <SettingsRow label="Gateway" value={gs?.gateway ?? "unknown"} variant={gs?.gateway === "online" ? "success" : "error"} />
                   <SettingsRow label="Workspace" value={gs?.workspaceRoot ?? "unknown"} />
                   <SettingsRow label="Mode" value={gs?.mode ?? "unknown"} />
@@ -396,7 +396,7 @@ export default function SettingsPage() {
             {section === "ai" ? (
               <div className="space-y-4">
                 <SectionHeading title="AI Config" description="How Claws reasons and streams responses. No provider key = local-first fallback mode." />
-                <div className="rounded-lg border border-border bg-surface-1 divide-y divide-border overflow-hidden">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                   <SettingsRow label="AI enabled" value={gs?.ai?.enabled ? "Yes" : "No"} variant={gs?.ai?.enabled ? "success" : "neutral"} />
                   <SettingsRow label="Provider" value={gs?.ai?.provider ?? "Not configured"} />
                   <SettingsRow label="Model" value={gs?.ai?.model ?? "Not set"} />
@@ -404,9 +404,9 @@ export default function SettingsPage() {
                   <SettingsRow label="AI Gateway URL" value={gs?.ai?.gatewayUrl ?? "Default (provider direct)"} />
                 </div>
                 {!gs?.ai?.enabled ? (
-                  <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground">
+                  <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 text-[13px] text-muted-foreground">
                     <div className="font-medium text-foreground mb-1">Enable AI</div>
-                    Set <InlineCode>AI_GATEWAY_API_KEY</InlineCode>, <InlineCode>OPENAI_API_KEY</InlineCode>, or <InlineCode>ANTHROPIC_API_KEY</InlineCode> in <InlineCode>.env.local</InlineCode>. Restart the gateway after updating.
+                    Set <InlineCode>OPENROUTER_API_KEY</InlineCode> (recommended to avoid Anthropic-only billing), or <InlineCode>AI_GATEWAY_API_KEY</InlineCode>, <InlineCode>OPENAI_API_KEY</InlineCode>, or <InlineCode>ANTHROPIC_API_KEY</InlineCode> in <InlineCode>.env.local</InlineCode>. Priority: Gateway → OpenRouter → OpenAI → Anthropic. Restart the gateway after updating.
                   </div>
                 ) : null}
               </div>
@@ -416,7 +416,7 @@ export default function SettingsPage() {
             {section === "execution" ? (
               <div className="space-y-4">
                 <SectionHeading title="Execution Substrates" description="The runtime picks the lightest substrate that can satisfy each request." />
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="text-[13px] font-medium">Execution Router Order</div>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {(gs?.execution?.routerOrder ?? ["api", "browser", "sandbox", "computer"]).map((env, i, arr) => (
@@ -440,26 +440,26 @@ export default function SettingsPage() {
                   ) : null}
                 </div>
 
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="flex items-center gap-2"><Monitor size={14} className="text-muted-foreground" /><div className="text-[13px] font-medium">Browser Automation</div></div>
-                  <div className="rounded-lg border border-border bg-surface-2 divide-y divide-border overflow-hidden">
+                  <div className="rounded-2xl border border-border/80 bg-surface-2 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                     <SettingsRow label="Provider" value={gs?.execution?.browser?.provider ?? "playwright"} variant={gs?.execution?.browser?.provider === "agent-browser" ? "info" : "success"} />
                     <SettingsRow label="Default visibility" value={gs?.execution?.browser?.defaultMode ?? "record-on-complete"} />
                     <SettingsRow label="Available" value={(gs?.execution?.browser?.availableProviders ?? []).join(", ")} />
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="flex items-center gap-2"><Box size={14} className="text-muted-foreground" /><div className="text-[13px] font-medium">Sandbox Execution</div></div>
-                  <div className="rounded-lg border border-border bg-surface-2 divide-y divide-border overflow-hidden">
+                  <div className="rounded-2xl border border-border/80 bg-surface-2 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                     <SettingsRow label="Enabled" value={gs?.execution?.sandbox?.enabled ? "Yes" : "No"} variant={gs?.execution?.sandbox?.enabled ? "success" : "neutral"} />
                     <SettingsRow label="Provider" value={gs?.execution?.sandbox?.provider ?? "none"} />
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="flex items-center gap-2"><Cpu size={14} className="text-muted-foreground" /><div className="text-[13px] font-medium">Computer Use</div></div>
-                  <div className="rounded-lg border border-border bg-surface-2 divide-y divide-border overflow-hidden">
+                  <div className="rounded-2xl border border-border/80 bg-surface-2 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                     <SettingsRow label="Available" value={gs?.execution?.computer?.available ? "Yes" : "No"} variant={gs?.execution?.computer?.available ? "success" : "neutral"} />
                   </div>
                   <div className="text-[12px] text-muted-foreground">{gs?.execution?.computer?.note ?? "Full computer-use requires Agent Browser native mode or a persistent VPS."}</div>
@@ -522,7 +522,7 @@ export default function SettingsPage() {
                     <textarea
                       value={rawEnvText}
                       onChange={(e) => { setRawEnvText(e.target.value); setEnvDirty(true); }}
-                      className="w-full min-h-[400px] rounded-lg border border-border bg-surface-1 p-4 text-[13px] font-[family-name:var(--font-geist-mono)] text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                      className="w-full min-h-[400px] rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 text-[13px] font-[family-name:var(--font-geist-mono)] text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring"
                       spellCheck={false}
                     />
                     {envDirty ? <div className="text-[11px] text-amber-600 dark:text-amber-400">Unsaved changes</div> : null}
@@ -531,7 +531,7 @@ export default function SettingsPage() {
                   <div className="space-y-5">
                     {/* AI Provider Status banner */}
                     {gs?.ai ? (
-                      <div className="rounded-lg border border-border bg-surface-1 p-4">
+                      <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4">
                         <div className="text-[13px] font-medium text-foreground mb-2">AI Provider Status</div>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px]">
                           <span className="flex items-center gap-1.5">
@@ -551,7 +551,7 @@ export default function SettingsPage() {
                       return (
                         <div key={group}>
                           <div className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground mb-2">{group}</div>
-                          <div className="rounded-lg border border-border bg-surface-1 divide-y divide-border overflow-hidden">
+                          <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                             {vars.map((v) => (
                               <div key={v.key} className="px-4 py-3 flex items-center justify-between gap-3">
                                 <div className="min-w-0 flex-1">
@@ -609,7 +609,7 @@ export default function SettingsPage() {
                           const testRes = testResult[int.id];
                           const isTesting = testingKey === int.id;
                           return (
-                            <div key={int.id} className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                            <div key={int.id} className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                               <div className="flex items-center gap-3">
                                 <img src={getFaviconUrl(int.domain)} alt="" width={20} height={20} className="rounded shrink-0" />
                                 <div className="flex-1 min-w-0">
@@ -660,7 +660,7 @@ export default function SettingsPage() {
             {section === "sync" ? (
               <div className="space-y-4">
                 <SectionHeading title="Cloud Sync" description="Optionally sync workspace context, sessions, and memory to the cloud." />
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-4">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       {sysInfo?.cloudSync?.enabled ? <Cloud size={18} className="text-primary" /> : <CloudOff size={18} className="text-muted-foreground" />}
@@ -688,7 +688,7 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                   {sysInfo?.cloudSync?.enabled ? (
-                    <div className="rounded-lg border border-border bg-surface-2 divide-y divide-border overflow-hidden">
+                    <div className="rounded-2xl border border-border/80 bg-surface-2 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                       <SettingsRow label="Status" value={sysInfo.cloudSync.status} variant={sysInfo.cloudSync.status === "idle" ? "success" : sysInfo.cloudSync.status === "syncing" ? "info" : "neutral"} />
                       <SettingsRow label="Last synced" value={sysInfo.cloudSync.lastSynced ?? "Never"} />
                     </div>
@@ -713,7 +713,7 @@ export default function SettingsPage() {
                 <SectionHeading title="Dashboard & Updates" description="Manage your dashboard template and check for Claws updates." />
 
                 {/* Version + Updates */}
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-4">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-4">
                   <div className="flex items-center gap-3">
                     <ArrowDownCircle size={18} className={sysInfo?.updateAvailable ? "text-primary" : "text-muted-foreground"} />
                     <div className="flex-1 min-w-0">
@@ -729,7 +729,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
                   {sysInfo?.updateAvailable ? (
-                    <div className="rounded-lg border border-border bg-surface-2 p-3 space-y-2">
+                    <div className="rounded-2xl border border-border/80 bg-surface-2 shadow-[var(--shadow-sm)] p-3 space-y-2">
                       <div className="text-[12px] font-medium text-foreground">Update instructions</div>
                       <div className="text-[12px] text-muted-foreground font-[family-name:var(--font-geist-mono)] bg-muted/30 rounded-md px-3 py-2 select-all">
                         pnpm update @claws-so/cli @claws-so/create
@@ -740,7 +740,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Custom dashboard template */}
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-4">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-4">
                   <div className="flex items-center gap-3">
                     <Palette size={18} className={sysInfo?.dashboard?.isCustom ? "text-emerald-500" : "text-muted-foreground"} />
                     <div className="flex-1 min-w-0">
@@ -777,7 +777,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Open CLI */}
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="flex items-center gap-3">
                     <Terminal size={18} className="text-muted-foreground" />
                     <div className="flex-1 min-w-0">
@@ -803,7 +803,7 @@ export default function SettingsPage() {
             {section === "about" ? (
               <div className="space-y-4">
                 <SectionHeading title="About Claws" description="Local-first AI agent OS." />
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3 text-[13px] text-muted-foreground">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3 text-[13px] text-muted-foreground">
                   <div className="text-foreground font-medium">Claws v{sysInfo?.version ?? "0.1.0"}</div>
                   <p>A local-first AI workspace for building, shipping, and managing projects. Claws runs your gateway locally, keeps data on your machine, and uses AI providers through your own API keys.</p>
                   <p>Each view is a composable overlay that influences routing, panels, tool policy, and scaffolding defaults. The runtime treats the current thread as primary view + overlays, not a single fixed mode.</p>

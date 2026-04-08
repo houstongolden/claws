@@ -1,0 +1,112 @@
+hub:
+  version: "2.0"
+  id: "{{HUB_ID}}"
+  name: "{{USERNAME}}'s Research OS"
+  owner: "{{USERNAME}}"
+  template: "researchos"
+  template_version: "1.3.0"
+  created: "2026-03-13T00:00:00Z"
+
+# What this workspace is for
+description: "Research AI OS — experiment DAGs, literature search, multi-model consensus, and autonomous scientific discovery."
+
+subdomain: "{{SUBDOMAIN}}"
+
+intelligence:
+  global: "opt-in"
+  org: null
+
+agents: []
+
+memory:
+  hub_id: "{{HUB_ID}}"
+  retention_days: 365
+
+context:
+  reserved_files:
+    - AGENTS.md
+    - SOUL.md
+    - USER.md
+    - MEMORY.md
+    - HEARTBEAT.md
+    - WELCOME.md
+  memory_dir: "./memory"
+  learnings_dir: "./learnings"
+  knowledge_dir: "./knowledge"
+  skills_dir: "./skills"
+
+# Agent configuration
+agent:
+  model: "anthropic/claude-sonnet-4-6"
+  heartbeat: "30m"
+  channels:
+    - telegram
+  thinking: true
+  proactive: true
+
+models:
+  default: "anthropic/claude-sonnet-4-6"
+  routing:
+    orchestrator: "anthropic/claude-sonnet-4-6"
+    researcher: "anthropic/claude-opus-4-5"
+    automation: "anthropic/claude-haiku-4-5"
+  free_tier:
+    - "anthropic/claude-haiku-4-5"
+
+vault:
+  id: ""
+
+# Pre-configured integrations
+integrations:
+  - id: telegram
+    status: pending
+    description: "Research alerts and finding notifications"
+
+# Skills pre-installed in this workspace
+skills:
+  registry: "hubify"
+  installed:
+    - morning-brief
+    - quick-capture
+    - web-research
+    - literature-search
+    - data-analysis
+    - equation-validation
+    - experiment-runner
+    - research-synthesis
+    - multi-model-consensus
+
+# Deployed squads
+squads:
+  - name: research-ops
+    description: Research operations — literature review, data collection, verification
+    pipeline: review
+    auto_deploy: true
+  - name: experiment-squad
+    description: Autonomous experiment execution — DAG expansion, hypothesis testing
+    pipeline: orchestration
+    auto_deploy: true
+
+# Knowledge subscriptions
+subscriptions:
+  - hubify-labs
+
+# Research-specific configuration
+research:
+  auto_publish_findings: true
+  publication_threshold: 0.6
+  compute_tier: e2b
+  verification_policy: "dual-verify"
+  apis:
+    - arxiv
+    - semantic-scholar
+    - nasa-ads
+    - wolfram-alpha
+    - perplexity
+    - deepseek
+
+privacy:
+  contribute_to_global: true
+  vault_shared_across_workspaces: true
+
+mode: "autonomous"

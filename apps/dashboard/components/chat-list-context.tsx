@@ -4,7 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -20,6 +20,7 @@ import {
   ensureChatInList,
   getChatList,
   getChatListSorted,
+  recoverChatsFromStorage,
   updateChatInList,
   toggleStar as toggleStarStorage,
   type ChatListItem,
@@ -57,10 +58,16 @@ export function ChatListProvider({ children }: { children: ReactNode }) {
     setChatList(getChatList());
   }, []);
 
-  useEffect(() => {
-    const meta = readSessionMeta();
+  /** Client-only session init — avoids SSR/client UUID mismatch (blank screen from hydration failure). */
+  useLayoutEffect(() => {
+    recoverChatsFromStorage();
+    let meta = readSessionMeta();
+    if (!meta) {
+      meta = createSessionMeta();
+      persistSessionMeta(meta);
+    }
     setCurrentMeta(meta);
-    if (meta) ensureChatInList(meta.chatId, meta.threadId);
+    ensureChatInList(meta.chatId, meta.threadId);
     refreshList();
   }, [refreshList]);
 
@@ -72,16 +79,19 @@ export function ChatListProvider({ children }: { children: ReactNode }) {
   const newChat = useCallback(() => {
     const prev = readSessionMeta();
     const list = getChatList();
-    if (prev && list.some((c) => c.chatId === prev.chatId)) {
-      updateChatInList(prev.chatId, { lastActivity: Date.now() });
-    } else if (prev) {
-      addToChatList({
-        chatId: prev.chatId,
-        threadId: prev.threadId,
-        title: "New chat",
-        starred: false,
-        lastActivity: Date.now(),
-      });
+    /* Always keep previous thread in the list so you can resume it later. */
+    if (prev) {
+      if (list.some((c) => c.chatId === prev.chatId)) {
+        updateChatInList(prev.chatId, { lastActivity: Date.now() });
+      } else {
+        addToChatList({
+          chatId: prev.chatId,
+          threadId: prev.threadId,
+          title: "Chat",
+          starred: false,
+          lastActivity: Date.now(),
+        });
+      }
     }
     const created = createSessionMeta();
     persistSessionMeta(created);
@@ -94,6 +104,7 @@ export function ChatListProvider({ children }: { children: ReactNode }) {
     const list = getChatList();
     const item = list.find((c) => c.chatId === chatId);
     if (!item) return;
+    updateChatInList(chatId, { lastActivity: Date.now() });
     const meta: SessionMeta = {
       workspaceId: "ws_local",
       channel: "local",
@@ -103,6 +114,7 @@ export function ChatListProvider({ children }: { children: ReactNode }) {
     };
     persistSessionMeta(meta);
     setCurrentMeta(meta);
+    setChatList(getChatList());
   }, []);
 
   const toggleStar = useCallback((chatId: string) => {

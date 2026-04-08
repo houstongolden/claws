@@ -19,8 +19,9 @@ import {
   Workflow,
   Play,
 } from "lucide-react";
+/* Shell aliased: SWC can throw "Unexpected token Shell" on <Shell> in this module */
 import {
-  Shell,
+  Shell as TracesShell,
   PageHeader,
   PageContent,
   EmptyState,
@@ -110,7 +111,7 @@ export default function TracesPage() {
   const traceTypes = Array.from(new Set(traces.map((t) => t.type)));
 
   return (
-    <Shell>
+    <TracesShell>
       <PageHeader
         title="Traces"
         description="Structured runtime ledger for model calls, tool executions, approvals, and durable work."
@@ -123,11 +124,12 @@ export default function TracesPage() {
       />
       <PageContent>
         <div className="max-w-3xl space-y-4">
-          <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground">
-            <div className="font-medium text-foreground mb-1">Observability ledger</div>
-            Traces are the honest record of what Claws did. Use them to verify behavior, debug routing, and audit tool use. Filter by type or search summary and agent.
+          <div className="rounded-2xl border border-border/80 bg-muted/15 p-5 text-[13px] text-muted-foreground leading-relaxed shadow-[var(--shadow-sm)]">
+            <div className="font-semibold text-foreground mb-2 text-[14px] tracking-tight">Observability ledger</div>
+            Traces record what Claws did—verify behavior, debug routing, and audit tool use. Filter by type or search summary and agent.
           </div>
-          <Toolbar>
+          <div className="rounded-2xl border border-border/80 bg-surface-1 p-3 shadow-[var(--shadow-sm)]">
+            <Toolbar className="gap-3">
             <div className="relative flex-1 min-w-[200px]">
               <Search
                 size={13}
@@ -182,10 +184,10 @@ export default function TracesPage() {
               </Button>
             </div>
             <ToolbarLabel>{filtered.length} events</ToolbarLabel>
-          </Toolbar>
+            </Toolbar>
 
           {error ? (
-            <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+            <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">
               {error}
             </div>
           ) : null}
@@ -225,7 +227,7 @@ export default function TracesPage() {
                   aria-expanded={isExpanded}
                   aria-label={isExpanded ? "Collapse trace details" : "Expand trace details"}
                 >
-                  <div className="flex items-start gap-3 px-4 py-2.5 rounded-lg hover:bg-surface-1 transition-colors">
+                  <div className="flex items-start gap-3 px-4 py-3 rounded-xl hover:bg-muted/25 motion-safe:transition-colors border border-transparent hover:border-border/40">
                     {/* Timeline dot */}
                     <div className="flex flex-col items-center pt-1 shrink-0">
                       <div className={config.color}>{config.icon}</div>
@@ -305,9 +307,10 @@ export default function TracesPage() {
               );
             })}
           </div>
+          </div>
         </div>
       </PageContent>
-    </Shell>
+    </TracesShell>
   );
 }
 

@@ -1,0 +1,218 @@
+---
+title: 'Claws SDK'
+description: 'Framework-agnostic communication layer for OpenClaw Gateway v3'
+icon: 'bolt'
+---
+
+# Claws SDK
+
+`@claws/sdk` is a framework-agnostic communication layer for OpenClaw Gateway v3. It provides WebSocket connectivity, device pairing, tool invocations, and a full suite of React hooks for building dashboard UIs on top of your OpenClaw workspace.
+
+30 source files. 17 React hooks. Zero framework lock-in.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @claws/sdk
+```
+
+```bash pnpm
+pnpm add @claws/sdk
+```
+
+```bash bun
+bun add @claws/sdk
+```
+</CodeGroup>
+
+## Quick Start
+
+Wrap your app in `GatewayProvider` to connect to your OpenClaw workspace:
+
+```tsx
+import { GatewayProvider } from '@claws/sdk/react';
+
+function App() {
+  return (
+    <GatewayProvider
+      gatewayUrl="wss://your-workspace.openclaw.dev/v3"
+      deviceId="dashboard-001"
+      onConnected={() => console.log('Connected to gateway')}
+    >
+      <Dashboard />
+    </GatewayProvider>
+  );
+}
+```
+
+Then use hooks inside any child component:
+
+```tsx
+import { useChatSession, useNodes, usePresence } from '@claws/sdk/react';
+
+function Dashboard() {
+  const { send, messages } = useChatSession();
+  const { nodes } = useNodes();
+  const { peers } = usePresence();
+
+  return (
+    <div>
+      <p>{nodes.length} nodes online, {peers.length} peers connected</p>
+      {messages.map((msg) => (
+        <div key={msg.id}>{msg.content}</div>
+      ))}
+      <button onClick={() => send('What is the status of my workspace?')}>
+        Ask Agent
+      </button>
+    </div>
+  );
+}
+```
+
+## Core Modules
+
+The core entrypoint (`@claws/sdk`) exposes low-level clients and controllers for use in any JavaScript environment -- Node.js, Deno, Bun, or the browser.
+
+| Module | Description |
+|--------|-------------|
+| `GatewayClient` | WebSocket client for OpenClaw Gateway v3. Handles connection lifecycle, message framing, and protocol negotiation. |
+| `TypedEventEmitter` | Strongly-typed event system used internally by all controllers. |
+| `ReconnectController` | Automatic reconnection with exponential backoff and jitter. |
+| `PairingController` | Device pairing flow for linking dashboards, CLIs, and mobile clients to a workspace. |
+| `ConfigClient` | Read and write workspace configuration over the gateway connection. |
+| `ToolsHttpClient` | HTTP client for invoking tools when a WebSocket is unavailable or unnecessary. |
+| `SmartPollController` | Adaptive polling that backs off when idle and speeds up during activity. |
+| `FocusTrap` | DOM focus management for modal and panel UIs. |
+
+### Auth Helpers
+
+```typescript
+import { getDeviceId, signChallenge, isSecureContext } from '@claws/sdk';
+
+// Get or generate a persistent device identifier
+const deviceId = getDeviceId();
+
+// Sign a gateway challenge for device authentication
+const signature = await signChallenge(challenge, privateKey);
+
+// Check if running in a secure context (HTTPS / localhost)
+if (isSecureContext()) {
+  // safe to use WebCrypto APIs
+}
+```
+
+### Protocol Constants
+
+```typescript
+import { METHODS, EVENTS, PROTOCOL_VERSION } from '@claws/sdk';
+
+console.log(PROTOCOL_VERSION); // "3.0"
+console.log(METHODS.CHAT_SEND); // "chat.send"
+console.log(EVENTS.NODE_STATUS); // "node.status"
+```
+
+## React Hooks Reference
+
+Import all hooks from `@claws/sdk/react`. Every hook requires `GatewayProvider` as an ancestor.
+
+| Hook | Purpose |
+|------|---------|
+| `useGateway` | Connection state, connect/disconnect, raw send/receive. |
+| `useGatewayContext` | Access the full gateway context object directly. |
+| `useChatSession` | Send messages, receive responses, manage chat history with the agent. |
+| `useCronJobs` | List, create, update, and delete cron jobs on the workspace. |
+| `useChannels` | Subscribe to real-time channels for live event streaming. |
+| `useExecApprovals` | Approve or reject pending tool executions in the approval queue. |
+| `useNodes` | List workspace nodes, their status, and metadata. |
+| `useSessions` | Manage gateway sessions -- list active, terminate, inspect. |
+| `useToolsInvoke` | Invoke a tool by name with typed arguments and receive results. |
+| `useWorkspaceFiles` | Read, write, list, and watch files in the workspace filesystem. |
+| `useSkills` | List and manage installed skills in the workspace. |
+| `useToolsCatalog` | Discover available tools across all connected nodes. |
+| `useConfig` | Read and write workspace configuration values. |
+| `usePresence` | Track which devices and users are currently connected. |
+| `useAcpSession` | Manage Agent Control Protocol sessions for structured agent interactions. |
+| `useSmartPoll` | Adaptive polling hook -- backs off when idle, speeds up on activity. |
+| `useFocusTrap` | Trap keyboard focus within a container element. |
+
+## Usage Patterns
+
+### Invoking a Tool
+
+```tsx
+import { useToolsInvoke } from '@claws/sdk/react';
+
+function RunTool() {
+  const { invoke, result, loading, error } = useToolsInvoke();
+
+  const handleRun = () => {
+    invoke('git.status', { path: '/workspace' });
+  };
+
+  return (
+    <div>
+      <button onClick={handleRun} disabled={loading}>Run git status</button>
+      {error && <p>{error.message}</p>}
+      {result && <pre>{JSON.stringify(result, null, 2)}</pre>}
+    </div>
+  );
+}
+```
+
+### Execution Approvals
+
+```tsx
+import { useExecApprovals } from '@claws/sdk/react';
+
+function ApprovalQueue() {
+  const { pending, approve, reject } = useExecApprovals();
+
+  return (
+    <ul>
+      {pending.map((item) => (
+        <li key={item.id}>
+          <span>{item.toolName}({JSON.stringify(item.args)})</span>
+          <button onClick={() => approve(item.id)}>Approve</button>
+          <button onClick={() => reject(item.id)}>Reject</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Real-Time Channels
+
+```tsx
+import { useChannels } from '@claws/sdk/react';
+
+function LogStream() {
+  const { messages } = useChannels('workspace.logs');
+
+  return (
+    <div>
+      {messages.map((msg, i) => (
+        <div key={i}>{msg.data}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="OpenClaw Integration" icon="robot" href="/integrations/openclaw">
+    Connect Hubify with OpenClaw agents
+  </Card>
+  <Card title="Hubify SDK" icon="cube" href="/integrations/sdk">
+    Programmatic access to the skill registry
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="/cli/overview">
+    60+ commands for managing workspaces
+  </Card>
+  <Card title="MCP Servers" icon="plug" href="/integrations/mcp-servers">
+    Use Hubify with Claude Code, Cursor, and Windsurf via MCP
+  </Card>
+</CardGroup>

@@ -10,7 +10,7 @@ export function CodeBlock({
   return (
     <pre
       className={cn(
-        "rounded-md border border-border bg-code-bg p-3 text-[12px] leading-relaxed text-muted-foreground overflow-x-auto font-[family-name:var(--font-geist-mono)]",
+        "rounded-xl border border-border/80 bg-code-bg p-4 text-[12px] leading-relaxed text-muted-foreground overflow-x-auto font-[family-name:var(--font-geist-mono)] shadow-[var(--shadow-sm)]",
         className
       )}
     >
@@ -29,7 +29,7 @@ export function InlineCode({
   return (
     <code
       className={cn(
-        "rounded bg-code-bg px-1.5 py-0.5 text-[12px] font-[family-name:var(--font-geist-mono)] text-foreground",
+        "rounded-md bg-muted/80 border border-border/50 px-1.5 py-0.5 text-[11px] font-[family-name:var(--font-geist-mono)] text-foreground",
         className
       )}
     >

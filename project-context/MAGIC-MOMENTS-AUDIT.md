@@ -1,6 +1,8 @@
 # Magic Moments Audit
 
 **Date:** 2025-03-06  
+**Synced:** 2026-03 — audit text below was updated to match current repo.
+
 **Mode:** Magic-moment execution (re-prioritize roadmap around 4 moments; no broad dashboard polish).
 
 ## Product priorities (from PRD / OpenClaw response)
@@ -27,34 +29,34 @@
 
 ## 2. Working persistent session chat
 
-| Status | **Partial** |
+| Status | **Strong (persistent PGlite)** / **Partial (in-memory fallback)** |
 |--------|--------------|
-| **Evidence** | Gateway: `getSessionHistory` reads from PGlite `messages`; `persistSessionHistory` writes via `replaceSessionMessages`. Non-streaming `handleChat` persists user + assistant after turn. Streaming `handleChatStream` persists only user message after stream; **assistant reply is never written to DB**. Dashboard can send `history` from client; if client doesn’t send it, server loads from DB (but streaming path never saved assistant reply). |
-| **Working** | Dashboard and gateway boot. Session send/receive. Approvals interrupt. Traces update. Tool events **are** emitted incrementally in SSE (`tool_call`, `tool_result` in `writeStreamToResponse`). Non-streaming chat persists full turn. |
-| **Blockers** | **Streaming path does not persist assistant reply** after stream completes. So: reload/restart loses last assistant message unless client re-sends history. Client-sent history is the current workaround. |
-| **Next** | After stream completes, append assistant message (and optional tool summary) to session in DB so reload shows full transcript without client re-sending history. |
+| **Evidence** | Streaming path: `onComplete` in `writeStreamToResponse` → `persistSessionHistory` — assistant reply saved after stream. **Nav Sessions**: starred + recent, resume by selection. If gateway uses **in-memory PGlite** (persistent init failed), transcript does not survive gateway restart. |
+| **Working** | Full transcript after reload when PGlite persistent works. Session list/resume in UI. |
+| **Blockers** | In-memory DB mode: no cross-restart persistence. Fix: stable PGlite dataDir or doc fallback. |
+| **Next** | Optional: mobile polish for artifact + composer; heartbeat runners. |
 
 ---
 
 ## 3. Agent visibly works (live state, tool streaming, approvals)
 
-| Status | **Partial** |
+| Status | **Strong** |
 |--------|--------------|
-| **Evidence** | Live state: `getSessionLiveState` aggregates traces, tool events, approvals, workflows. Traces and tool_events written in gateway. Approvals: enqueue, resolve, grants. SSE: `tool_call` / `tool_result` / `approval_requested` emitted in stream. |
-| **Working** | Gateway emits tool_call and tool_result incrementally. Approvals gate high-risk tools; approval_requested in stream. Traces and tool_events stored and queryable. Live state API exists. |
-| **Blockers** | Dashboard may not consume incremental tool events for live UI (may only show final complete payload). Not verified in this audit. |
-| **Next** | Confirm dashboard chat UI consumes streamed tool_call/tool_result for incremental display. If not, add minimal UI to show tools as they complete. |
+| **Evidence** | Same as before, plus dashboard: **file cards** during stream for fs.write/fs.append; **artifact panel** (code + HTML preview + open in browser). |
+| **Working** | Incremental tool UI in chat; approvals; traces. |
+| **Blockers** | None critical for moment 3. |
+| **Next** | Richer multi-step tool timeline optional. |
 
 ---
 
 ## 4. Proactive follow-up or scheduled brief
 
-| Status | **Partial** |
+| Status | **Strong (scheduler)** / **Partial (handlers)** |
 |--------|--------------|
-| **Evidence** | Proactivity: schema, jobs, executions, notifications, decision engine. API: jobs, run now, decisions. Dashboard: Proactivity page. Slash: /morning-brief, /eod, /watchdog. **No cron/interval scheduler** — jobs run on-demand or via slash only. |
-| **Working** | Run job now works. Decision engine runs when job completes. Notifications and decisions visible in API and UI. |
-| **Blockers** | **No process runs due jobs on a schedule.** So “scheduled brief” doesn’t run unless user triggers slash or “run now”. |
-| **Next** | Add gateway loop or worker that polls `listDueScheduledJobs(now)` and runs due jobs (with cron parsing for next-run). |
+| **Evidence** | Gateway **30s interval** calls `listDueScheduledJobs(Date.now())` and `runProactiveJob` for each due job. Slash + Run still work. Full cron expression parsing for next-run optional. |
+| **Working** | Due jobs run on schedule (with cron throttle until full parsing). |
+| **Blockers** | Stub handlers until LLM/product wiring; proactive messages into conversation thread not done. |
+| **Next** | Real brief content; post into conversation; full cron parsing. |
 
 ---
 
@@ -63,20 +65,20 @@
 | Magic moment                     | Status   | Main blocker(s) |
 |----------------------------------|----------|------------------|
 | 1. Install + onboarding          | Partial  | None critical    |
-| 2. Working persistent session    | Partial  | Streaming path doesn’t persist assistant reply |
-| 3. Agent visibly works            | Partial  | Dashboard incremental tool UI unverified |
-| 4. Proactive follow-up / brief    | Partial  | No cron/interval scheduler for due jobs |
+| 2. Working persistent session    | Strong*  | *In-memory PGlite = no restart persistence |
+| 3. Agent visibly works            | Strong   | Optional richer timeline |
+| 4. Proactive follow-up / brief    | Strong*  | *Handler stubs; thread post missing |
 
 ---
 
-## Recommended implementation order
+## Recommended implementation order (updated 2026-03)
 
-1. **Session persistence (streaming)** — Append assistant message (and optionally tool summary) to session after stream complete. Unblocks “session persists across reload” for streaming chat.
-2. **Proactivity scheduler** — Poll due jobs and run them. Unblocks “scheduled brief” magic moment.
-3. **Dashboard tool streaming UI** — Verify or add incremental display of tool_call/tool_result from SSE.
-4. **Local CLI validation** — Run through commands and TUI; fix any broken flows.
+1. ~~Session persistence (streaming)~~ — Done (`onComplete` → persistSessionHistory).
+2. ~~Proactivity scheduler~~ — Done (gateway 30s loop).
+3. ~~Dashboard tool streaming UI~~ — Done (file cards + artifact panel).
+4. **Next:** PGlite stable on all hosts (or accept fallback); proactive LLM handlers; multi-agent delegation UX.
 
-No broad dashboard polish in this pass; only changes that directly support the four moments.
+Design passes (glass bar, pages aligned) done separately from this audit’s “no broad polish” rule.
 
 ---
 

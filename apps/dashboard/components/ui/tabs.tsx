@@ -42,7 +42,7 @@ const TabsList = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "flex items-center gap-0 border-b border-border",
+      "inline-flex flex-wrap items-center gap-1 rounded-xl border border-border/80 bg-muted/35 p-1 shadow-[var(--shadow-sm)]",
       className
     )}
     role="tablist"
@@ -68,12 +68,10 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
         role="tab"
         aria-selected={isActive}
         className={cn(
-          "relative px-3 pb-2.5 pt-1 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-t disabled:pointer-events-none disabled:opacity-50",
+          "relative px-3.5 py-2 text-[12px] font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-lg disabled:pointer-events-none disabled:opacity-50",
           isActive
-            ? "text-foreground"
-            : "text-muted-foreground hover:text-foreground",
-          isActive &&
-            "after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-foreground after:rounded-full",
+            ? "bg-background text-foreground shadow-sm border border-border/50"
+            : "text-muted-foreground hover:text-foreground hover:bg-background/50 border border-transparent",
           className
         )}
         onClick={() => context.onValueChange(value)}
@@ -98,7 +96,7 @@ const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(
       <div
         ref={ref}
         role="tabpanel"
-        className={cn("mt-4", className)}
+        className={cn("mt-5", className)}
         {...props}
       />
     );

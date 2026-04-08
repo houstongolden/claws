@@ -228,6 +228,20 @@ export async function updateAttentionDecisionNotificationAndWorkItem(
   );
 }
 
+/** JSONB may return object; JSON.parse(object) → "[object Object]" error */
+function criteriaFromRow(c: unknown): Record<string, unknown> {
+  if (c == null) return {};
+  if (typeof c === "object" && !Array.isArray(c)) return c as Record<string, unknown>;
+  if (typeof c === "string") {
+    try {
+      return JSON.parse(c) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  return {};
+}
+
 export async function listAttentionDecisions(limit = 50, offset = 0): Promise<AttentionDecision[]> {
   const res = await getDb().query<{
     id: string;
@@ -293,7 +307,7 @@ export async function getRecentDecisionByDedupeKey(
     owner: r.owner as ProactiveOwner,
     notificationId: r.notification_id,
     workItemId: r.work_item_id,
-    criteria: r.criteria ? (JSON.parse(r.criteria) as Record<string, unknown>) : {},
+    criteria: criteriaFromRow(r.criteria),
     createdAt: r.created_at,
   };
 }

@@ -59,7 +59,7 @@ For **implementation status** of each area (files, routes, runtime), see [featur
 **Evidence:**
 - files: packages/runtime-db (PGlite schema, sessions, messages, traces, approvals, workflow_runs, etc.); apps/gateway/src/localStore.ts exists but deprecated
 - routes: N/A (persistence layer)
-- runtime: initRuntimeDb at gateway startup; state in .claws/runtime/
+- runtime: initRuntimeDb at gateway startup; state in `.claws/runtime/`; fallback initRuntimeDbInMemory if persistent init fails
 
 **Note:** tasks.md RUN-005 still references localStore.ts; actual persistence is PGlite via @claws/runtime-db.
 
@@ -312,15 +312,33 @@ For **implementation status** of each area (files, routes, runtime), see [featur
 
 ---
 
+## 17. Gateway resilience + vibe coding + session list (2026-03 sync)
+
+**Prompt (inferred):** Gateway must start when PGlite persistent fails; chat should not dump full files; session list and artifact UX.
+
+**Requested:**
+- `initRuntimeDbInMemory()` fallback in gateway when `dataDir` PGlite aborts
+- System prompt: use `fs.write` for files, short confirmation only
+- Dashboard: file cards for writes, artifact panel (preview + open in browser), sidebar collapse
+- Nav: Sessions starred + recent, resume chat
+
+**Status:** complete
+
+**Evidence:**
+- files: `packages/runtime-db/src/index.ts` (initRuntimeDbInMemory), `apps/gateway/src/main.ts` (try/catch init), `apps/gateway/src/aiHandler.ts`, `session-workbench.tsx`, `artifact-panel.tsx`, `shell.tsx`, `nav.tsx`, chat-list context
+- runtime: gateway boots with in-memory DB if needed; full transcript persist when persistent PGlite works
+
+---
+
 ## Summary
 
 | # | Prompt / theme | Status |
 |---|----------------|--------|
 | 1 | Bootstrap and monorepo | complete |
 | 2 | Runtime kernel and gateway | complete |
-| 3 | Local persistence | complete (PGlite) |
+| 3 | Local persistence | complete (PGlite + in-memory fallback) |
 | 4 | Dashboard scaffold and API client | complete |
-| 5 | Design system | complete |
+| 5 | Design system | complete (+ 2026 glass/tokens pass) |
 | 6 | AI SDK integration | complete |
 | 7 | Workflow engine | complete |
 | 8 | Browser / execution substrates | partial |
@@ -329,8 +347,9 @@ For **implementation status** of each area (files, routes, runtime), see [featur
 | 11 | Session-first IA and verification | complete |
 | 12 | Conversations and channels | complete |
 | 13 | Intelligence / context analysis | complete |
-| 14 | Proactivity engine | partial |
+| 14 | Proactivity engine | complete (scheduler + on-demand; handlers stub) |
 | 15 | PGlite migration | complete |
 | 16 | Browser QA and product quality | complete |
+| 17 | Gateway resilience + vibe coding + session list | complete |
 
-**Total prompts reconstructed:** 16
+**Total prompts reconstructed:** 17

@@ -1,5 +1,7 @@
 # Human Tasks (Owner-Only)
 
+**Last reviewed:** 2026-03 — unchanged items still apply.
+
 Only include tasks that require human access, accounts, secrets, or product decisions.
 
 Status:

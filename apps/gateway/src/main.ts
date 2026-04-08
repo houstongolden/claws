@@ -7,7 +7,7 @@ import path from "node:path";
 for (const name of [".env.local", ".env"]) {
   const p = path.resolve(process.cwd(), name);
   if (existsSync(p)) {
-    dotenv.config({ path: p });
+    dotenv.config({ path: p, override: true });
     break;
   }
 }
@@ -15,7 +15,7 @@ for (const name of [".env.local", ".env"]) {
 for (const name of [".env.local", ".env"]) {
   const p = path.resolve(process.cwd(), "..", "..", name);
   if (existsSync(p)) {
-    dotenv.config({ path: p, override: false });
+    dotenv.config({ path: p, override: true });
     break;
   }
 }
@@ -97,11 +97,13 @@ import { FolderPolicyError } from "@claws/workspace";
 import { printStartupBanner, runCliChat } from "./cli";
 import { startGateway, type GatewayRuntime } from "./httpServer";
 import {
+  DEFAULT_AI_MODEL,
   getConfiguredAIProvider,
   isAIEnabled,
   handleAIChat,
   validateAIProviderConfiguration,
   writeStreamToResponse,
+  PLAN_MODE_TOOL_NAMES,
   type ChatHistoryTurn,
 } from "./aiHandler";
 import { registerTenant, listTenants, getTenant } from "./tenantRouter";
@@ -126,13 +128,27 @@ function normalizeCommandTarget(input: string): string {
     .trim();
 }
 
+type ApprovalRequiredMeta = {
+  toolName: string;
+  sessionKey: {
+    workspaceId: string;
+    agentId: string;
+    channel: string;
+    chatId: string;
+    threadId?: string;
+  };
+};
+
 class ApprovalRequiredError extends Error {
-  constructor(
-    message: string,
-    readonly approvalId: string
-  ) {
+  readonly toolName?: string;
+  readonly sessionKey?: ApprovalRequiredMeta["sessionKey"];
+  constructor(message: string, readonly approvalId: string, meta?: ApprovalRequiredMeta) {
     super(message);
     this.name = "ApprovalRequiredError";
+    if (meta) {
+      this.toolName = meta.toolName;
+      this.sessionKey = meta.sessionKey;
+    }
   }
 }
 
@@ -303,7 +319,8 @@ async function main() {
 
         throw new ApprovalRequiredError(
           `Approval required for ${input.name}. Resolve request ${approval.id} in Approvals.`,
-          approval.id
+          approval.id,
+          { toolName: input.name, sessionKey: input.sessionKey }
         );
       }
     }
@@ -434,11 +451,11 @@ async function main() {
         ai: {
           enabled: isAIEnabled(),
           streaming: isAIEnabled(),
-          model: process.env.AI_MODEL || "gpt-4o-mini",
+          model: process.env.AI_MODEL?.trim() || DEFAULT_AI_MODEL,
           provider: aiProvider,
           gatewayUrl:
             aiProvider === "gateway"
-              ? process.env.AI_GATEWAY_URL || "https://ai-gateway.vercel.sh/v1"
+              ? process.env.AI_GATEWAY_URL || "https://ai-gateway.vercel.sh/v3/ai"
               : null,
         },
         execution: {
@@ -852,6 +869,7 @@ async function main() {
       ? async (input, res) => {
           const chatId = input.chatId ?? "dashboard-chat";
           const threadId = input.threadId;
+          const mode = input.mode ?? "agent";
           const history = await getSessionHistory({
             chatId,
             threadId,
@@ -865,10 +883,17 @@ async function main() {
             from: { userId: "local-user", displayName: "You", isMe: true },
             chat: { chatId, threadId },
           });
+          const planPrompt =
+            mode === "plan"
+              ? "\n\n[Plan mode: read-only — use fs.read, fs.list, research.*, browser.extract, memory.search, status.get only. Do not write files or mutate tasks.]"
+              : mode === "chat"
+                ? "\n\n[Chat mode: no tools — answer from general knowledge only.]"
+                : "";
           await writeStreamToResponse(
             {
-              message: input.message,
+              message: input.message + planPrompt,
               history,
+              maxSteps: input.maxSteps,
             },
             {
               registry,
@@ -881,9 +906,12 @@ async function main() {
                   view: routing.viewStack.primary,
                 }),
               identityContext,
-              onApprovalRequested: (approvalId) => {
+              maxSteps: input.maxSteps,
+              allowedToolNames: mode === "plan" ? PLAN_MODE_TOOL_NAMES : undefined,
+              disableTools: mode === "chat",
+              onApprovalRequested: (payload) => {
                 if (!res.destroyed) {
-                  res.write(`data: ${JSON.stringify({ type: "approval_requested", approvalId })}\n\n`);
+                  res.write(`data: ${JSON.stringify({ type: "approval_requested", ...payload })}\n\n`);
                 }
               },
               onComplete: async (fullText) => {
@@ -924,6 +952,8 @@ async function main() {
       participantAgentIds,
       mentionedAgentIds,
       leadAgentId: overrideLeadAgentId,
+      mode = "agent",
+      maxSteps: reqMaxSteps,
     }) => {
       const history = await getSessionHistory({ chatId, threadId, history: providedHistory });
       const event: MessageEvent = {
@@ -1179,10 +1209,16 @@ async function main() {
             }
           : undefined;
 
+      const modeSuffix =
+        mode === "plan"
+          ? "\n\n[Plan mode: read-only tools only.]"
+          : mode === "chat"
+            ? "\n\n[Chat mode: no tools.]"
+            : "";
       if (isAIEnabled()) {
         try {
           result = await handleAIChat(
-            { message, history },
+            { message: message + modeSuffix, history },
             {
               registry,
               guardedRunTool: async ({ name, args }) =>
@@ -1198,6 +1234,9 @@ async function main() {
               participantAgentIds,
               mentionedAgentIds,
               delegateToAgent,
+              maxSteps: reqMaxSteps,
+              allowedToolNames: mode === "plan" ? PLAN_MODE_TOOL_NAMES : undefined,
+              disableTools: mode === "chat",
             }
           );
         } catch (aiError) {

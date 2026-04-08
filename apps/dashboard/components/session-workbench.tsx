@@ -18,7 +18,7 @@ import {
   ShieldAlert,
   Slash,
   ScanEye,
-  Sparkles,
+  PanelRight,
   Trash2,
   Wrench,
   Workflow,
@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Shell, useSidebar } from "./shell";
 import { ArtifactPanel } from "./artifact-panel";
+import { LiveCanvasPanel, type LiveCanvasPanelProps } from "./live-canvas-panel";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { StatusDot } from "./ui/status-dot";
@@ -48,6 +49,7 @@ import {
   getViewState,
   getWorkflows,
   runTool,
+  resolveApproval,
   createMemoryProposal,
   getProactiveJobs,
   runProactiveJobNow,
@@ -63,8 +65,6 @@ import {
 import { LiveStateBar } from "./live-state-bar";
 import {
   CHAT_DRAFT_KEY,
-  createSessionMeta,
-  ensureSessionMeta,
   loadHistoryForChat,
   saveHistoryForChat,
   type SessionHistoryMessage,
@@ -90,7 +90,18 @@ type StreamEvent =
       result?: unknown;
       error?: string;
     }
-  | { type: "approval_requested"; approvalId: string };
+  | {
+      type: "approval_requested";
+      approvalId: string;
+      toolName?: string;
+      sessionKey?: {
+        workspaceId: string;
+        agentId: string;
+        channel: string;
+        chatId: string;
+        threadId?: string;
+      };
+    };
 
 type ChatEntry = {
   id: string;
@@ -101,6 +112,10 @@ type ChatEntry = {
   ts: number;
   streaming?: boolean;
   images?: string[];
+  stepLimited?: boolean;
+  maxSteps?: number;
+  /** Text sent to API (may include URL pins); display uses `content` for user = show displayContent ?? content */
+  displayContent?: string;
 };
 
 type ViewState = {
@@ -150,6 +165,19 @@ const MENTION_TARGETS = [
   { label: "Agents", prefix: "agents:", icon: Bot, description: "Mention an agent" },
 ];
 
+function getStepLabel(toolName: string, args: Record<string, unknown>): string {
+  const path = typeof args.path === "string" ? args.path : null;
+  if (toolName === "fs.write" || toolName === "fs_write") return path ? `Write ${path.split("/").pop() ?? path}` : "Write file";
+  if (toolName === "fs.append" || toolName === "fs_append") return path ? `Append to ${path.split("/").pop() ?? path}` : "Append to file";
+  if (toolName === "fs.read") return path ? `Read ${path.split("/").pop() ?? path}` : "Read file";
+  if (toolName === "fs.list") return "List directory";
+  if (toolName === "memory.search") return "Search memory";
+  if (toolName === "research.webSearch" || toolName === "research_webSearch") return "Search the web";
+  if (toolName === "research.fetchUrl" || toolName === "research_fetchUrl") return "Fetch URL";
+  if (toolName === "status.get") return "Check status";
+  return toolName.replace(/[._]/g, " ");
+}
+
 function getToolLabel(toolName: string, status: "pending" | "ok" | "error"): string {
   const pending = status === "pending";
   const labels: Record<string, string> = {
@@ -159,6 +187,11 @@ function getToolLabel(toolName: string, status: "pending" | "ok" | "error"): str
     "fs.read": pending ? "Reading file…" : "Read file",
     "fs.list": pending ? "Listing directory…" : "Listed directory",
     "fs.write": pending ? "Writing file…" : "Wrote file",
+    "fs_write": pending ? "Writing file…" : "Wrote file",
+    "research.fetchUrl": pending ? "Fetching URL…" : "Fetched page",
+    "research_fetchUrl": pending ? "Fetching URL…" : "Fetched page",
+    "research.webSearch": pending ? "Searching the web…" : "Web search",
+    "research_webSearch": pending ? "Searching the web…" : "Web search",
     "list tools": pending ? "Listing tools…" : "Listed tools",
     "status": pending ? "Checking status…" : "Checked status",
   };
@@ -196,16 +229,47 @@ function getToolResultSummary(toolName: string, data: unknown, error?: string): 
 }
 
 const SUGGESTED_PROMPTS = [
-  { label: "See workspace status", command: "status", note: "View gateway, tools, and workspace root." },
-  { label: "Scaffold a project", command: "create a project called launch-site", note: "Create canonical project files in the workspace." },
-  { label: "Capture a task", command: "create a task called tighten onboarding copy in launch-site", note: "Append a task event tied to the workspace." },
-  { label: "Search memory", command: "search memory release checklist", note: "Recall durable workspace context and prior notes." },
+  {
+    label: "Vibe code a landing page",
+    command:
+      "Write a stunning single-file HTML landing page about Claws (2 sections: hero + features) to projects/claws-demos/claws-landing.html — bold typography, dark theme, no generic AI slop.",
+    note: "Lovable/v0 style — live preview opens on the right.",
+  },
+  {
+    label: "Research + cite sources",
+    command:
+      "Search the web for the latest on AI agent frameworks 2025, summarize with bullet points and link every claim to a source URL. Save key findings to memory.",
+    note: "Manus/Perplexity style — uses Tavily if configured.",
+  },
+  {
+    label: "Read a doc URL",
+    command:
+      "Fetch https://example.com and tell me the page title and main topic in 3 bullets.",
+    note: "research.fetchUrl — no API key needed.",
+  },
+  { label: "See workspace status", command: "What is the gateway status and workspace root?", note: "status.get + short answer." },
+  { label: "Scaffold + task", command: "create a project called launch-site then add a task: ship hero copy", note: "Projects + tasks." },
+  { label: "Search memory", command: "search memory for anything about release or onboarding", note: "Workspace memory recall." },
 ];
 
 export function SessionWorkbench() {
-  const { currentMeta, newChat, updateChatTitle, updateChatActivity } = useChatList();
+  const { currentMeta } = useChatList();
+  if (!currentMeta) {
+    return (
+      <Shell>
+        <div className="flex min-h-screen flex-1 items-center justify-center gap-3 bg-background text-muted-foreground">
+          <Loader2 className="h-8 w-8 animate-spin shrink-0" aria-hidden />
+          <span className="text-sm">Loading session…</span>
+        </div>
+      </Shell>
+    );
+  }
+  return <SessionWorkbenchLoaded meta={currentMeta} />;
+}
+
+function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
+  const { newChat, updateChatTitle, updateChatActivity, currentMeta } = useChatList();
   const { setSidebarCollapsed } = useSidebar();
-  const meta = currentMeta ?? ensureSessionMeta();
 
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -228,6 +292,7 @@ export function SessionWorkbench() {
   const [savingMemoryId, setSavingMemoryId] = useState<string | null>(null);
   const [liveStateRefreshTrigger, setLiveStateRefreshTrigger] = useState(0);
   const [chatMode, setChatMode] = useState<ChatMode>("agent");
+  const [maxSteps, setMaxSteps] = useState(48);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [showMentionMenu, setShowMentionMenu] = useState(false);
   const [slashFilter, setSlashFilter] = useState("");
@@ -238,6 +303,9 @@ export function SessionWorkbench() {
   const [artifactPanelOpen, setArtifactPanelOpen] = useState(false);
   const [selectedArtifactPath, setSelectedArtifactPath] = useState<string | null>(null);
   const [artifactContent, setArtifactContent] = useState<string | null>(null);
+  /** Right rail: vibe coding UI while building (auto on send) */
+  const [liveCanvasOpen, setLiveCanvasOpen] = useState(false);
+  const [livePreviewHtml, setLivePreviewHtml] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const prevChatIdRef = useRef<string | undefined>(undefined);
@@ -246,6 +314,11 @@ export function SessionWorkbench() {
 
   useEffect(() => {
     const chatId = currentMeta?.chatId ?? meta.chatId;
+    const prevId = prevChatIdRef.current;
+    /* Persist previous thread before switching — avoids losing messages when changing chats. */
+    if (prevId && prevId !== chatId && !prevId.startsWith("conv_")) {
+      saveHistoryForChat(prevId, history);
+    }
     if (chatId.startsWith("conv_")) {
       getConversationMessages(chatId)
         .then((res) => {
@@ -260,9 +333,24 @@ export function SessionWorkbench() {
         .catch(() => setHistory([]));
     } else {
       const loaded = loadHistoryForChat(chatId) as ChatEntry[];
-      setHistory(Array.isArray(loaded) ? loaded : []);
+      const list = Array.isArray(loaded) ? loaded : [];
+      /* Stuck "Thinking…" after reload: never persist assistant rows as streaming. */
+      setHistory(
+        list.map((e) =>
+          e.role === "assistant" && e.streaming
+            ? {
+                ...e,
+                streaming: false,
+                streamEvents: undefined,
+                content:
+                  e.content?.trim() ||
+                  "(Previous reply did not finish — send again if you need an answer.)",
+              }
+            : e
+        )
+      );
     }
-    if (prevChatIdRef.current !== undefined && prevChatIdRef.current !== chatId) setMessage("");
+    if (prevId !== undefined && prevId !== chatId) setMessage("");
     prevChatIdRef.current = chatId;
     setHydrated(true);
   }, [currentMeta?.chatId, meta.chatId]);
@@ -273,6 +361,22 @@ export function SessionWorkbench() {
     if (chatId.startsWith("conv_")) return;
     saveHistoryForChat(chatId, history);
   }, [history, hydrated, currentMeta?.chatId, meta.chatId]);
+
+  /* Persist on tab hide / close so threads survive refresh without waiting for debounced save. */
+  useEffect(() => {
+    const chatId = currentMeta?.chatId ?? meta.chatId;
+    if (chatId.startsWith("conv_")) return;
+    const flush = () => saveHistoryForChat(chatId, history);
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, [history, currentMeta?.chatId, meta.chatId]);
 
   useEffect(() => {
     const el = inputRef.current;
@@ -380,10 +484,18 @@ export function SessionWorkbench() {
     setSelectedArtifactPath(path);
     setArtifactContent(null);
     setArtifactPanelOpen(true);
+    setLiveCanvasOpen(true);
     setSidebarCollapsed(true);
   }, [setSidebarCollapsed]);
 
   const closeArtifact = useCallback(() => {
+    setArtifactPanelOpen(false);
+    setSelectedArtifactPath(null);
+    setArtifactContent(null);
+  }, []);
+
+  const closeLiveCanvas = useCallback(() => {
+    setLiveCanvasOpen(false);
     setArtifactPanelOpen(false);
     setSelectedArtifactPath(null);
     setArtifactContent(null);
@@ -431,12 +543,38 @@ export function SessionWorkbench() {
   }, []);
 
   const tryStreamChat = useCallback(
-    async (text: string, assistantId: string, priorHistory: SessionHistoryMessage[], meta: SessionMeta): Promise<boolean> => {
+    async (
+      text: string,
+      assistantId: string,
+      priorHistory: SessionHistoryMessage[],
+      meta: SessionMeta,
+      opts?: { mode?: ChatMode; maxSteps?: number }
+    ): Promise<boolean> => {
+      const maybeOpenArtifactFromTool = (toolName: string, ok: boolean, result: unknown) => {
+        if (!ok || result == null || typeof result !== "object") return;
+        const path = (result as Record<string, unknown>).path;
+        const content = (result as Record<string, unknown>).content;
+        if (typeof content === "string" && content.length > 0 && (typeof path === "string" && path.toLowerCase().endsWith(".html") || /^\s*</.test(content))) {
+          setLivePreviewHtml(content);
+        }
+        if (typeof path !== "string" || !path.length) return;
+        const isWrite = toolName === "fs.write" || toolName === "fs_write" || toolName === "fs.append" || toolName === "fs_append";
+        if (!isWrite) return;
+        openArtifact(path);
+        if (typeof content === "string") setArtifactContent(content);
+      };
       try {
         const res = await fetch(`${GATEWAY_URL}/api/chat/stream`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ message: text, chatId: meta.chatId, threadId: meta.threadId, history: priorHistory }),
+          body: JSON.stringify({
+            message: text,
+            chatId: meta.chatId,
+            threadId: meta.threadId,
+            history: priorHistory,
+            mode: opts?.mode ?? chatMode,
+            maxSteps: opts?.maxSteps ?? maxSteps,
+          }),
         });
         if (res.status === 501 || !res.ok || !res.body) return false;
         const reader = res.body.getReader();
@@ -444,6 +582,8 @@ export function SessionWorkbench() {
         let buffer = "";
         let fullText = "";
         let toolResults: ToolResult[] = [];
+        let stepLimited = false;
+        let completedMaxSteps = maxSteps;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -469,33 +609,120 @@ export function SessionWorkbench() {
                 setHistory((prev) => prev.map((e) => e.id === assistantId ? { ...e, streamEvents: [...(e.streamEvents ?? []), { type: "tool_call", toolCallId: String(event.toolCallId ?? ""), toolName: String(event.toolName ?? ""), args: (event.args as Record<string, unknown>) ?? {} }] } : e));
               }
               if (type === "tool_result") {
-                setHistory((prev) => prev.map((e) => e.id === assistantId ? { ...e, streamEvents: [...(e.streamEvents ?? []), { type: "tool_result", toolCallId: String(event.toolCallId ?? ""), toolName: String(event.toolName ?? ""), ok: event.ok === true, result: event.result, error: typeof event.error === "string" ? event.error : undefined }] } : e));
+                const toolName = String(event.toolName ?? "");
+                const ok = event.ok === true;
+                maybeOpenArtifactFromTool(toolName, ok, event.result);
+                setHistory((prev) => prev.map((e) => e.id === assistantId ? { ...e, streamEvents: [...(e.streamEvents ?? []), { type: "tool_result", toolCallId: String(event.toolCallId ?? ""), toolName, ok, result: event.result, error: typeof event.error === "string" ? event.error : undefined }] } : e));
               }
               if (type === "approval_requested" && typeof event.approvalId === "string") {
-                setHistory((prev) => prev.map((e) => e.id === assistantId ? { ...e, streamEvents: [...(e.streamEvents ?? []), { type: "approval_requested", approvalId: event.approvalId as string }] } : e));
+                const sk = event.sessionKey;
+                const sessionKey =
+                  sk && typeof sk === "object"
+                    ? {
+                        workspaceId: String((sk as Record<string, unknown>).workspaceId ?? ""),
+                        agentId: String((sk as Record<string, unknown>).agentId ?? ""),
+                        channel: String((sk as Record<string, unknown>).channel ?? ""),
+                        chatId: String((sk as Record<string, unknown>).chatId ?? ""),
+                        threadId:
+                          (sk as Record<string, unknown>).threadId != null
+                            ? String((sk as Record<string, unknown>).threadId)
+                            : undefined,
+                      }
+                    : undefined;
+                setHistory((prev) =>
+                  prev.map((e) =>
+                    e.id === assistantId
+                      ? {
+                          ...e,
+                          streamEvents: [
+                            ...(e.streamEvents ?? []),
+                            {
+                              type: "approval_requested" as const,
+                              approvalId: event.approvalId as string,
+                              toolName: typeof event.toolName === "string" ? event.toolName : undefined,
+                              sessionKey:
+                                sessionKey && sessionKey.workspaceId && sessionKey.chatId
+                                  ? sessionKey
+                                  : undefined,
+                            },
+                          ],
+                        }
+                      : e
+                  )
+                );
+              }
+              if (type === "step_limit") {
+                stepLimited = true;
+                if (typeof event.maxSteps === "number") completedMaxSteps = event.maxSteps as number;
               }
               if (type === "complete" || type === "finish") {
                 if (typeof event.text === "string") fullText = event.text;
                 if (Array.isArray(event.toolResults)) toolResults = event.toolResults as ToolResult[];
-                setHistory((prev) => prev.map((e) => e.id === assistantId ? { ...e, content: fullText || "Done.", toolResults, streamEvents: undefined, streaming: false } : e));
-                if (toolResults.some((r) => r.toolName === "tasks.appendEvent" || r.toolName === "fs.write")) {
+                if (event.stepLimited === true) stepLimited = true;
+                if (typeof event.maxSteps === "number") completedMaxSteps = event.maxSteps as number;
+                setHistory((prev) =>
+                  prev.map((e) =>
+                    e.id === assistantId
+                      ? {
+                          ...e,
+                          content: fullText || "Done.",
+                          toolResults,
+                          streamEvents: undefined,
+                          streaming: false,
+                          stepLimited,
+                          maxSteps: completedMaxSteps,
+                        }
+                      : e
+                  )
+                );
+                if (toolResults.some((r) => ["tasks.appendEvent", "fs.write", "fs_write", "fs.append", "fs_append", "memory.flush"].includes(r.toolName))) {
                   try { window.dispatchEvent(new CustomEvent("claws:refresh-context")); } catch {}
                 }
               }
-              if (type === "error" && typeof event.error === "string") setError(event.error);
+              if (type === "error" && event.error != null) {
+                const errMsg = typeof event.error === "string" ? event.error : JSON.stringify(event.error);
+                setError(errMsg);
+                setHistory((prev) =>
+                  prev.map((e) =>
+                    e.id === assistantId
+                      ? {
+                          ...e,
+                          content: fullText || `Error: ${errMsg}`,
+                          streamEvents: undefined,
+                          streaming: false,
+                        }
+                      : e
+                  )
+                );
+              }
             } catch {}
           }
         }
-        if (fullText || toolResults.length > 0) {
-          setHistory((prev) => prev.map((e) => e.id === assistantId ? { ...e, content: fullText || "Done.", toolResults, streamEvents: undefined, streaming: false } : e));
-          if (toolResults.some((r) => r.toolName === "tasks.appendEvent" || r.toolName === "fs.write")) {
-            try { window.dispatchEvent(new CustomEvent("claws:refresh-context")); } catch {}
-          }
+        /* Always clear streaming — stream often ends without complete/finish (hang, proxy drop, empty SSE). */
+        setHistory((prev) =>
+          prev.map((e) =>
+            e.id === assistantId
+              ? {
+                  ...e,
+                  content:
+                    fullText ||
+                    (toolResults.length ? "Done." : "(No streamed reply — check gateway / network and send again.)"),
+                  toolResults,
+                  streamEvents: undefined,
+                  streaming: false,
+                  stepLimited,
+                  maxSteps: completedMaxSteps,
+                }
+              : e
+          )
+        );
+        if (toolResults.some((r) => ["tasks.appendEvent", "fs.write", "fs_write", "fs.append", "fs_append", "memory.flush"].includes(r.toolName))) {
+          try { window.dispatchEvent(new CustomEvent("claws:refresh-context")); } catch {}
         }
         return true;
       } catch { return false; }
     },
-    []
+    [openArtifact, chatMode, maxSteps]
   );
 
   const sendMessage = useCallback(
@@ -503,14 +730,35 @@ export function SessionWorkbench() {
       if (!text.trim() || loading) return;
       const raw = text.trim();
       const priorHistory: SessionHistoryMessage[] = history.filter((e) => e.content.trim()).map((e) => ({ role: e.role, content: e.content }));
-      const userEntry: ChatEntry = { id: crypto.randomUUID(), role: "user", content: raw, ts: Date.now(), images: pastedImages.length > 0 ? [...pastedImages] : undefined };
+      const urlPins = (raw.match(/https?:\/\/[^\s<>"{}|\\^`[\]]+/gi) ?? []).slice(0, 5);
+      const userContent =
+        pastedImages.length > 0
+          ? `${raw}\n\n[_User attached ${pastedImages.length} image(s) — describe or recreate from them._]`
+          : urlPins.length > 0
+            ? `${raw}\n\n[_Context URLs: ${urlPins.join(" ")}_]`
+            : raw;
+      const userEntry: ChatEntry = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: userContent,
+        displayContent: raw,
+        ts: Date.now(),
+        images: pastedImages.length > 0 ? [...pastedImages] : undefined,
+      };
       const assistantId = crypto.randomUUID();
       const placeholderEntry: ChatEntry = { id: assistantId, role: "assistant", content: "", streamEvents: [], ts: Date.now(), streaming: true };
 
-      setHistory((prev) => [...prev, userEntry, placeholderEntry]);
+      /* Drop stuck "Thinking…" placeholders when sending again; only the new turn streams. */
+      setHistory((prev) => [
+        ...prev.filter((e) => !(e.role === "assistant" && e.streaming)),
+        userEntry,
+        placeholderEntry,
+      ]);
       setMessage("");
       setPastedImages([]);
       setLoading(true);
+      setLiveCanvasOpen(true);
+      setLivePreviewHtml(null);
       setError(null);
       setShowSlashMenu(false);
       setShowMentionMenu(false);
@@ -558,12 +806,19 @@ export function SessionWorkbench() {
           return;
         }
 
-        const streamed = await tryStreamChat(text.trim(), assistantId, priorHistory, meta);
+        const streamed = await tryStreamChat(userContent.trim(), assistantId, priorHistory, meta);
         if (!streamed) {
           const res = await fetch(`${GATEWAY_URL}/api/chat`, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ message: text.trim(), chatId: meta.chatId, threadId: meta.threadId, history: priorHistory }),
+            body: JSON.stringify({
+              message: userContent.trim(),
+              chatId: meta.chatId,
+              threadId: meta.threadId,
+              history: priorHistory,
+              mode: chatMode,
+              maxSteps,
+            }),
           });
           if (!res.ok) throw new Error(`Gateway error: ${res.status}`);
           const data = (await res.json()) as { result?: { summary?: string; messages?: string[]; toolResults?: ToolResult[] }; summary?: string; messages?: string[]; toolResults?: ToolResult[] };
@@ -577,7 +832,18 @@ export function SessionWorkbench() {
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
-        setHistory((prev) => prev.filter((e) => e.id !== assistantId || e.content));
+        setHistory((prev) =>
+          prev.map((e) =>
+            e.id === assistantId
+              ? {
+                  ...e,
+                  content: e.content?.trim() || `Request failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+                  streaming: false,
+                  streamEvents: undefined,
+                }
+              : e
+          )
+        );
       } finally {
         setLoading(false);
         setLiveStateRefreshTrigger((t) => t + 1);
@@ -585,7 +851,7 @@ export function SessionWorkbench() {
         void loadContext();
       }
     },
-    [history, loadContext, loading, meta, pastedImages, tryStreamChat, updateChatActivity, updateChatTitle]
+    [history, loadContext, loading, meta, pastedImages, tryStreamChat, updateChatActivity, updateChatTitle, chatMode, maxSteps]
   );
 
   const handleEditSubmit = useCallback((entryId: string) => {
@@ -675,16 +941,16 @@ export function SessionWorkbench() {
 
   return (
     <Shell>
-      <div className="flex h-screen flex-col bg-background">
-        <header className="shrink-0 border-b border-border bg-background px-4 sm:px-6 py-3">
+      <div className="flex h-screen flex-col session-canvas">
+        <header className="shrink-0 border-b border-border/60 glass-bar px-4 sm:px-6 py-3 sm:py-3.5 z-20 supports-[padding:max(0px)]:pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="text-[15px] font-semibold text-foreground tracking-tight truncate">Session</h1>
-              <p className="text-[12px] text-muted-foreground mt-0.5 truncate">
+              <h1 className="text-[15px] sm:text-[16px] font-semibold text-foreground tracking-tight truncate">Session</h1>
+              <p className="text-[12px] text-muted-foreground mt-0.5 truncate leading-snug max-w-xl font-[450]">
                 {loading ? "Claws is responding…" : status?.gateway === "online" && status?.ai?.enabled ? "Chat, build, and ship — projects, tasks, memory & tools" : status?.gateway === "online" && !status?.ai?.enabled ? "Gateway online — configure API keys in Settings to enable AI" : status?.gateway === "offline" ? "Gateway offline — start the gateway to use chat" : "Connecting…"}
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1 shrink-0">
               <Button type="button" variant="ghost" size="sm" onClick={async () => {
                 const next = !intelligencePanelOpen;
                 setIntelligencePanelOpen(next);
@@ -692,7 +958,7 @@ export function SessionWorkbench() {
                   setIntelligenceLoading(true);
                   try { const res = await getChatIntelligence(meta.chatId, meta.threadId); setIntelligenceData(res.intelligence ?? null); } catch { setIntelligenceData(null); } finally { setIntelligenceLoading(false); }
                 }
-              }} className={cn("text-muted-foreground hover:text-foreground", intelligencePanelOpen && "text-foreground")} title="Chat intelligence" aria-label={intelligencePanelOpen ? "Close chat intelligence panel" : "Open chat intelligence panel"}>
+              }} className={cn("rounded-[10px] text-muted-foreground hover:text-foreground", intelligencePanelOpen && "text-foreground")} title="Chat intelligence" aria-label={intelligencePanelOpen ? "Close chat intelligence panel" : "Open chat intelligence panel"}>
                 <ScanEye size={14} />
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => setContextPanelOpen(!contextPanelOpen)} className={cn("text-muted-foreground hover:text-foreground hidden xl:flex", contextPanelOpen && "text-foreground")} title={contextPanelOpen ? "Hide context panel" : "Show context panel"} aria-label={contextPanelOpen ? "Hide context panel" : "Show context panel"}>
@@ -709,18 +975,18 @@ export function SessionWorkbench() {
               ) : null}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-border/50 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
-            <span className="flex items-center gap-1.5 text-muted-foreground">
+          <div className="mt-2 pt-2 border-t border-border/40 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px]">
+            <span className="flex items-center gap-1.5 text-muted-foreground rounded-full bg-muted/50 px-2 py-0.5">
               <StatusDot variant={status?.gateway === "online" ? "success" : "neutral"} />
               {status?.gateway === "online" ? "Online" : status?.gateway === "offline" ? "Offline" : "Connecting"}
             </span>
             {status?.gateway === "online" ? (
-              <Link href="/settings" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline">
+              <Link href="/settings" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline rounded-full bg-muted/30 px-2 py-0.5 hover:bg-muted/50">
                 <StatusDot variant={status?.ai?.enabled ? "success" : "warning"} />
                 {status?.ai?.enabled ? `AI: ${status.ai.model ?? "active"}` : "AI: not configured"}
               </Link>
             ) : null}
-            <Link href="/approvals" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline">
+            <Link href="/approvals" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline rounded-full px-2 py-0.5 hover:bg-muted/40">
               <ShieldAlert size={12} className={approvals.length > 0 ? "text-warning" : ""} />
               {approvals.length > 0 ? `${approvals.length} pending` : "Approvals"}
             </Link>
@@ -732,6 +998,35 @@ export function SessionWorkbench() {
               <Workflow size={12} />
               {activeWorkflows.length > 0 ? `${activeWorkflows.length} active` : "Workflows"}
             </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setLiveCanvasOpen(true);
+                if (touchedFiles[0]) openArtifact(touchedFiles[0]);
+              }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[12px] font-medium transition-colors",
+                liveCanvasOpen || artifactPanelOpen
+                  ? "bg-muted text-foreground border border-border"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}
+            >
+              <PanelRight size={12} />
+              Canvas
+            </button>
+            {history.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const lines = history.map((e) => `## ${e.role}\n${e.displayContent ?? e.content}`);
+                  void navigator.clipboard.writeText(lines.join("\n\n"));
+                }}
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+              >
+                <Copy size={12} />
+                Export chat
+              </button>
+            ) : null}
           </div>
         </header>
 
@@ -757,12 +1052,16 @@ export function SessionWorkbench() {
           />
         ) : null}
 
-        <div className={cn(
-          "flex-1 min-h-0 flex",
-          artifactPanelOpen && "xl:grid xl:grid-cols-[1fr_420px]",
-          !artifactPanelOpen && contextPanelOpen && "xl:grid xl:grid-cols-[1fr_340px]"
-        )}>
-          <div className="min-h-0 flex flex-col flex-1">
+        <div
+          className={cn(
+            "flex-1 min-h-0 flex flex-col overflow-hidden",
+            /* Inline split only — never a fixed overlay. md+: 65/35 side-by-side; small: chat then canvas below. */
+            (liveCanvasOpen || artifactPanelOpen) &&
+              "md:grid md:grid-cols-[minmax(0,35%)_minmax(0,65%)] md:grid-rows-1 md:items-stretch",
+            !(liveCanvasOpen || artifactPanelOpen) && contextPanelOpen && "xl:grid xl:grid-cols-[1fr_340px]"
+          )}
+        >
+          <div className="min-h-0 flex flex-col flex-1 md:min-w-0 border-b border-border md:border-b-0">
             <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden">
               <div className="mx-auto w-full max-w-[var(--content-max-width)] px-4 sm:px-6 py-8 space-y-6">
                 {history.length === 0 && !loading ? (
@@ -771,28 +1070,48 @@ export function SessionWorkbench() {
 
                 {history.map((entry) =>
                   entry.role === "assistant" && entry.streaming ? (
-                    <div key={entry.id} className="space-y-2">
+                    <div key={entry.id} className="space-y-3">
+                      <AgentStepList
+                        content={entry.content}
+                        streamEvents={entry.streamEvents}
+                        streaming={entry.streaming}
+                      />
                       {!entry.content && (!entry.streamEvents?.length || entry.streamEvents.every((e) => e.type === "thinking")) ? (
-                        <div className="flex items-center gap-2 text-muted-foreground text-[13px] pt-1 animate-pulse">
+                        <div className="flex items-center gap-2 text-muted-foreground text-[13px] pt-1">
                           <Loader2 size={14} className="animate-spin shrink-0" />
-                          <span>Thinking…</span>
+                          <span>Planning…</span>
                         </div>
                       ) : null}
-                      {entry.content ? (
-                        <div className="text-[14px] leading-relaxed text-foreground max-w-[var(--chat-message-max-width)]">
-                          <ChatMarkdown content={entry.content} />
-                          <span className="inline-block w-1.5 h-4 bg-foreground/40 ml-0.5 animate-pulse rounded-sm align-middle" />
-                        </div>
+                      {entry.streamEvents?.length ? (
+                        <StreamEventsList
+                          events={entry.streamEvents}
+                          onOpenArtifact={openArtifact}
+                          onApprovalResolved={() => { void loadContext(); }}
+                        />
                       ) : null}
-                      {entry.streamEvents?.length ? <StreamEventsList events={entry.streamEvents} onOpenArtifact={openArtifact} /> : null}
                     </div>
                   ) : entry.role === "assistant" && (entry.content || (entry.toolResults?.length ?? 0) > 0) ? (
-                    <MessageRow key={entry.id} entry={entry} onEdit={null} onOpenArtifact={openArtifact} />
+                    <MessageRow
+                      key={entry.id}
+                      entry={entry}
+                      onEdit={null}
+                      onOpenArtifact={openArtifact}
+                      sessionMeta={meta}
+                      onApprovalResolved={() => { void loadContext(); }}
+                      onContinue={
+                        entry.stepLimited
+                          ? () => {
+                              setMaxSteps((m) => Math.min(128, m + 32));
+                              setTimeout(() => sendMessage("Continue: complete any remaining steps from your last reply. Do not repeat finished work."), 0);
+                            }
+                          : undefined
+                      }
+                    />
                   ) : entry.role === "user" ? (
                     <MessageRow
                       key={entry.id}
                       entry={entry}
-                      onEdit={editingMessageId === entry.id ? null : () => { setEditingMessageId(entry.id); setEditingContent(entry.content); }}
+                      onEdit={editingMessageId === entry.id ? null : () => { setEditingMessageId(entry.id); setEditingContent(entry.displayContent ?? entry.content); }}
                       isEditing={editingMessageId === entry.id}
                       editingContent={editingContent}
                       onEditChange={setEditingContent}
@@ -803,7 +1122,7 @@ export function SessionWorkbench() {
                 )}
 
                 {error ? (
-                  <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive space-y-2">
+                  <div className="rounded-2xl border border-destructive/20 bg-destructive/[0.06] px-4 py-3.5 text-[13px] text-destructive space-y-2 shadow-[var(--shadow-sm)]">
                     <p>{error}</p>
                     <button type="button" onClick={() => { setError(null); inputRef.current?.focus(); }} className="text-[12px] font-medium text-foreground hover:underline">
                       Dismiss and retry
@@ -819,19 +1138,19 @@ export function SessionWorkbench() {
               </div>
             </div>
 
-            <div className="shrink-0 bg-background px-4 sm:px-6 py-3">
+            <div className="shrink-0 border-t border-border/40 bg-background/80 backdrop-blur-xl px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <div className="mx-auto w-full max-w-[var(--content-max-width)]">
                 {hydrated && status != null && status.gateway !== "online" ? (
-                  <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 mb-3 text-[13px] text-foreground">
-                    <p className="font-medium mb-0.5">Gateway not connected</p>
-                    <p className="text-muted-foreground text-[12px]">
+                  <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3.5 mb-3 text-[13px] text-foreground shadow-[var(--shadow-sm)]">
+                    <p className="font-semibold mb-1 text-[13px]">Gateway not connected</p>
+                    <p className="text-muted-foreground text-[12px] leading-relaxed">
                       Run <code className="text-[12px] font-[family-name:var(--font-geist-mono)] bg-surface-2 px-1.5 py-0.5 rounded">pnpm dev</code> from the workspace root to start the gateway.
                     </p>
                   </div>
                 ) : hydrated && status?.gateway === "online" && status?.ai?.enabled === false ? (
-                  <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 px-4 py-3 mb-3 text-[13px] text-foreground">
-                    <p className="font-medium mb-0.5">AI not configured</p>
-                    <p className="text-muted-foreground text-[12px]">
+                  <div className="rounded-2xl border border-blue-500/20 bg-blue-500/[0.06] px-4 py-3.5 mb-3 text-[13px] text-foreground shadow-[var(--shadow-sm)]">
+                    <p className="font-semibold mb-1 text-[13px]">AI not configured</p>
+                    <p className="text-muted-foreground text-[12px] leading-relaxed">
                       Add your API keys in{" "}
                       <Link href="/settings" className="text-primary hover:underline font-medium">Settings → Environment & Keys</Link>
                       {" "}(Raw view) to enable AI chat. The gateway is running but needs at least one provider key.
@@ -854,7 +1173,7 @@ export function SessionWorkbench() {
 
                 <form onSubmit={onSubmit} className="relative">
                   {showSlashMenu && filteredSlashCommands.length > 0 ? (
-                    <div ref={slashMenuRef} className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-border bg-background shadow-lg overflow-hidden z-10 max-h-[240px] overflow-y-auto">
+                    <div ref={slashMenuRef} className="absolute bottom-full left-0 right-0 mb-2 rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-xl shadow-[var(--shadow-float)] overflow-hidden z-10 max-h-[240px] overflow-y-auto ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
                       {filteredSlashCommands.map((cmd) => (
                         <button key={cmd.command} type="button" onClick={() => selectSlashCommand(cmd.command)} className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-muted/50 transition-colors">
                           <span className="shrink-0 text-[12px] font-[family-name:var(--font-geist-mono)] text-muted-foreground">/{cmd.command.trim()}</span>
@@ -865,7 +1184,7 @@ export function SessionWorkbench() {
                   ) : null}
 
                   {showMentionMenu && filteredMentionTargets.length > 0 ? (
-                    <div ref={mentionMenuRef} className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-border bg-background shadow-lg overflow-hidden z-10 max-h-[240px] overflow-y-auto">
+                    <div ref={mentionMenuRef} className="absolute bottom-full left-0 right-0 mb-2 rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-xl shadow-[var(--shadow-float)] overflow-hidden z-10 max-h-[240px] overflow-y-auto ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
                       {filteredMentionTargets.map((target) => {
                         const Icon = target.icon;
                         return (
@@ -879,18 +1198,18 @@ export function SessionWorkbench() {
                     </div>
                   ) : null}
 
-                  <div className="rounded-2xl border border-border bg-surface-1 shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:border-transparent">
+                  <div className="composer-dock rounded-[22px] border border-border/80 bg-card focus-within:ring-2 focus-within:ring-ring/25 focus-within:border-transparent transition-shadow duration-200">
                     <textarea
                       ref={inputRef}
                       value={message}
                       onChange={handleInputChange}
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
-                      placeholder="Ask Claws anything…"
+                      placeholder="Ask anything…"
                       title="Enter to send · Shift+Enter for new line"
                       rows={1}
                       disabled={loading}
-                      className="w-full resize-none rounded-t-2xl bg-transparent px-4 pt-3 pb-1 text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 font-[family-name:var(--font-geist-sans)] min-h-[44px] max-h-[var(--composer-max-height)]"
+                      className="w-full resize-none rounded-t-[22px] bg-transparent px-4 pt-3.5 pb-1 text-[15px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none disabled:opacity-50 font-[family-name:var(--font-geist-sans)] min-h-[48px] max-h-[var(--composer-max-height)] leading-[1.45]"
                     />
                     <div className="flex items-center justify-between px-3 pb-2">
                       <div className="flex items-center gap-1">
@@ -925,12 +1244,23 @@ export function SessionWorkbench() {
                           }} />
                         </label>
                         <div className="h-4 w-px bg-border mx-1" />
-                        <ChatModeSelector mode={chatMode} onChange={setChatMode} />
+                        <label className="sr-only" htmlFor="claws-chat-mode">Mode</label>
+                        <select
+                          id="claws-chat-mode"
+                          value={chatMode}
+                          onChange={(e) => setChatMode(e.target.value as ChatMode)}
+                          title="Agent = tools on · Plan = read-only · Chat = no tools"
+                          className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px] text-foreground max-w-[11rem] sm:max-w-[14rem] focus:outline-none focus:ring-2 focus:ring-ring/50"
+                        >
+                          <option value="agent">Agent — tools on</option>
+                          <option value="plan">Plan — read-only</option>
+                          <option value="chat">Chat — no tools</option>
+                        </select>
                       </div>
                       <button
                         type="submit"
                         disabled={loading || !message.trim()}
-                        className="flex items-center justify-center w-8 h-8 rounded-xl bg-primary text-primary-foreground transition-opacity duration-150 disabled:opacity-30 hover:opacity-90"
+                        className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-primary-foreground shadow-sm transition-all duration-200 disabled:opacity-25 hover:opacity-95 active:scale-95 disabled:active:scale-100"
                         aria-label="Send message"
                       >
                         {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} strokeWidth={2.2} />}
@@ -945,14 +1275,25 @@ export function SessionWorkbench() {
             </div>
           </div>
 
-          {artifactPanelOpen && selectedArtifactPath ? (
+          {(liveCanvasOpen || artifactPanelOpen) && selectedArtifactPath ? (
             <ArtifactPanel
               path={selectedArtifactPath}
               content={artifactContent}
-              onClose={closeArtifact}
+              onClose={closeLiveCanvas}
             />
           ) : null}
-          {!artifactPanelOpen && contextPanelOpen ? (
+          {(liveCanvasOpen || artifactPanelOpen) && !selectedArtifactPath ? (
+            <LiveCanvasPanel
+              open
+              onClose={closeLiveCanvas}
+              loading={loading}
+              streamEvents={history.find((e) => e.streaming)?.streamEvents as LiveCanvasPanelProps["streamEvents"]}
+              previewHtml={livePreviewHtml}
+              previewLabel={livePreviewHtml ? "Streaming build" : undefined}
+              className="min-h-[min(50vh,420px)] md:min-h-0 border-t-0 md:border-t-0 md:border-l"
+            />
+          ) : null}
+          {!(liveCanvasOpen || artifactPanelOpen) && contextPanelOpen ? (
             <ContextPanel
               contextTab={contextTab}
               setContextTab={setContextTab}
@@ -965,7 +1306,7 @@ export function SessionWorkbench() {
               activeWorkflows={activeWorkflows}
             />
           ) : null}
-          {!artifactPanelOpen && contextPanelOpen ? (
+          {!(liveCanvasOpen || artifactPanelOpen) && contextPanelOpen ? (
             <div className="xl:hidden fixed inset-0 z-50 flex justify-end">
               <button
                 type="button"
@@ -996,71 +1337,29 @@ export function SessionWorkbench() {
   );
 }
 
-function ChatModeSelector({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode) => void }) {
-  const [open, setOpen] = useState(false);
-  const modes: { value: ChatMode; label: string; desc: string }[] = [
-    { value: "agent", label: "Agent", desc: "Full tool access and actions" },
-    { value: "plan", label: "Plan", desc: "Read-only planning mode" },
-    { value: "chat", label: "Chat", desc: "Conversational, no tools" },
-  ];
-  const current = modes.find((m) => m.value === mode) ?? modes[0];
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[12px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-      >
-        {current.label}
-        <ChevronDown size={11} className={cn("transition-transform", open && "rotate-180")} />
-      </button>
-      {open ? (
-        <>
-          <button type="button" className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-label="Close" />
-          <div className="absolute bottom-full left-0 mb-1 w-48 rounded-xl border border-border bg-background shadow-lg overflow-hidden z-20">
-            {modes.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                onClick={() => { onChange(m.value); setOpen(false); }}
-                className={cn(
-                  "w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors",
-                  mode === m.value && "bg-muted/40"
-                )}
-              >
-                <div className="text-[12px] font-medium text-foreground">{m.label}</div>
-                <div className="text-[11px] text-muted-foreground">{m.desc}</div>
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
 function SessionEmptyState({ onSend }: { onSend: (cmd: string) => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 sm:py-24 gap-10">
-      <div className="flex flex-col items-center gap-4 text-center">
-        <div className="space-y-2 max-w-md">
-          <p className="text-[20px] font-semibold text-foreground tracking-tight">What can I help with?</p>
-          <p className="text-[14px] text-muted-foreground leading-relaxed">
-            Chat, build, and ship in one place. Projects, tasks, memory, and tools—all connected.
+    <div className="flex flex-col items-center justify-center py-14 sm:py-24 gap-14">
+      <div className="relative flex flex-col items-center gap-5 text-center">
+        <div className="absolute -inset-32 rounded-full bg-gradient-to-b from-foreground/[0.04] via-transparent to-transparent blur-3xl pointer-events-none dark:from-white/[0.06]" aria-hidden />
+        <div className="relative space-y-2 max-w-md px-4">
+          <p className="text-[clamp(1.35rem,3vw,1.65rem)] font-semibold text-foreground tracking-tight text-balance">What can I help with?</p>
+          <p className="text-[15px] text-muted-foreground leading-relaxed font-[450] text-pretty">
+            Code, research, and tasks—one calm workspace.
           </p>
         </div>
       </div>
-      <div className="w-full max-w-lg">
-        <div className="grid gap-2.5 sm:grid-cols-2">
+      <div className="w-full max-w-2xl px-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {SUGGESTED_PROMPTS.map((prompt) => (
             <button
               key={prompt.label}
               type="button"
               onClick={() => onSend(prompt.command)}
-              className="rounded-xl border border-border bg-surface-1 p-3.5 text-left hover:bg-muted/50 transition-colors"
+              className="group rounded-2xl border border-border/80 bg-card p-4 text-left transition-all duration-200 hover:border-border hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <div className="text-[13px] font-medium text-foreground">{prompt.label}</div>
-              <div className="mt-0.5 text-[12px] text-muted-foreground">{prompt.note}</div>
+              <div className="text-[13px] font-medium text-foreground tracking-tight">{prompt.label}</div>
+              <div className="mt-1 text-[12px] text-muted-foreground leading-snug">{prompt.note}</div>
             </button>
           ))}
         </div>
@@ -1069,10 +1368,41 @@ function SessionEmptyState({ onSend }: { onSend: (cmd: string) => void }) {
   );
 }
 
+function extractCitations(toolResults: ToolResult[]): { title: string; url: string }[] {
+  const out: { title: string; url: string }[] = [];
+  const seen = new Set<string>();
+  for (const t of toolResults) {
+    if (!t.ok || t.data == null) continue;
+    const d = t.data as Record<string, unknown>;
+    if (t.toolName === "research.webSearch" && Array.isArray(d.results)) {
+      for (const r of d.results as unknown[]) {
+        if (!r || typeof r !== "object") continue;
+        const u = (r as Record<string, unknown>).url;
+        const title = (r as Record<string, unknown>).title;
+        if (typeof u === "string" && u.startsWith("http") && !seen.has(u)) {
+          seen.add(u);
+          out.push({ url: u, title: typeof title === "string" ? title : u.slice(0, 48) });
+        }
+      }
+    }
+    if (t.toolName === "research.fetchUrl" && typeof d.url === "string") {
+      const u = d.url;
+      if (!seen.has(u)) {
+        seen.add(u);
+        out.push({ url: u, title: typeof d.title === "string" ? d.title : "Fetched page" });
+      }
+    }
+  }
+  return out.slice(0, 12);
+}
+
 function MessageRow({
   entry,
   onEdit,
   onOpenArtifact,
+  onContinue,
+  sessionMeta,
+  onApprovalResolved,
   isEditing,
   editingContent,
   onEditChange,
@@ -1082,6 +1412,9 @@ function MessageRow({
   entry: ChatEntry;
   onEdit: (() => void) | null;
   onOpenArtifact?: (path: string) => void;
+  onContinue?: () => void;
+  sessionMeta?: SessionMeta;
+  onApprovalResolved?: () => void;
   isEditing?: boolean;
   editingContent?: string;
   onEditChange?: (val: string) => void;
@@ -1126,7 +1459,7 @@ function MessageRow({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className={cn("max-w-[var(--chat-message-max-width)] w-full", isUser ? "text-right" : "")}>
+      <div className={cn(isUser ? "max-w-[var(--chat-message-max-width)] w-full text-right" : "w-full max-w-[min(100%,48rem)]")}>
         {entry.images?.length ? (
           <div className={cn("flex gap-2 mb-2", isUser ? "justify-end" : "")}>
             {entry.images.map((img, idx) => (
@@ -1142,12 +1475,18 @@ function MessageRow({
                   <Pencil size={13} />
                 </button>
               ) : null}
-              <div className="inline-block rounded-2xl px-4 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap bg-muted text-foreground ml-auto">
-                {entry.content}
+              <div className="inline-block rounded-[20px] rounded-br-md px-4 py-2.5 text-[15px] leading-[1.45] whitespace-pre-wrap bg-muted/90 text-foreground ml-auto shadow-sm border border-border/30">
+                {entry.displayContent ?? entry.content}
               </div>
             </>
           ) : (
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 space-y-2">
+              {!entry.streaming && (entry.content || (entry.toolResults?.length ?? 0) > 0) ? (
+                <AgentStepList
+                  content={entry.content}
+                  toolResults={entry.toolResults}
+                />
+              ) : null}
               <div className="text-[14px] leading-relaxed text-foreground">
                 <ChatMarkdown content={entry.content} />
                 {entry.streaming ? <span className="inline-block w-1.5 h-4 bg-foreground/40 ml-0.5 animate-pulse rounded-sm align-middle" /> : null}
@@ -1165,16 +1504,251 @@ function MessageRow({
         {entry.toolResults && entry.toolResults.length > 0 ? (
           <div className="mt-2 space-y-2">
             {entry.toolResults.map((tool, idx) => (
-              <ToolResultBlock key={`${tool.toolName}-${idx}`} tool={tool} onOpenArtifact={onOpenArtifact} />
+              <ToolResultBlock
+                key={`${tool.toolName}-${idx}`}
+                tool={tool}
+                onOpenArtifact={onOpenArtifact}
+                sessionMeta={sessionMeta}
+                onApprovalResolved={onApprovalResolved}
+              />
             ))}
           </div>
+        ) : null}
+        {!isUser && entry.stepLimited ? (
+          <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-200">
+            <p className="font-medium">Step limit reached ({entry.maxSteps ?? "?"} steps).</p>
+            <p className="text-amber-200/80 mt-0.5">Continue to let the agent run more tool rounds.</p>
+            {onContinue ? (
+              <Button type="button" size="sm" className="mt-2 h-8 text-[11px]" onClick={onContinue}>
+                Continue
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        {!isUser && !entry.streaming && entry.toolResults && entry.toolResults.length > 0 ? (
+          (() => {
+            const cites = extractCitations(entry.toolResults);
+            if (cites.length === 0) return null;
+            return (
+              <div className="mt-2 rounded-lg border border-border bg-muted/20 px-3 py-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Sources</p>
+                <ul className="space-y-1 text-[12px]">
+                  {cites.map((c) => (
+                    <li key={c.url}>
+                      <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
+                        {c.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()
         ) : null}
       </div>
     </div>
   );
 }
 
-function StreamEventsList({ events, onOpenArtifact }: { events: StreamEvent[]; onOpenArtifact?: (path: string) => void }) {
+function AgentStepList({
+  content,
+  streamEvents,
+  toolResults,
+  streaming,
+}: {
+  content: string;
+  streamEvents?: StreamEvent[];
+  toolResults?: ToolResult[];
+  streaming?: boolean;
+}) {
+  const steps = useMemo(() => {
+    const ev = streamEvents ?? [];
+    if (ev.length > 0) {
+    const out: Array<{ toolCallId: string; toolName: string; args: Record<string, unknown>; status: "active" | "done" | "error" }> = [];
+    const byId = new Map<string, (typeof out)[0]>();
+    for (const e of ev) {
+      if (e.type === "tool_call") {
+        const step = {
+          toolCallId: e.toolCallId,
+          toolName: e.toolName,
+          args: e.args ?? {},
+          status: "active" as const,
+        };
+        byId.set(e.toolCallId, step);
+        out.push(step);
+      } else if (e.type === "tool_result") {
+        const step = byId.get(e.toolCallId);
+        if (step) step.status = e.ok ? "done" : "error";
+      }
+    }
+    return out;
+    }
+    const results = toolResults ?? [];
+    return results.map((t, i) => ({
+      toolCallId: `done-${i}`,
+      toolName: t.toolName,
+      args: (t.data && typeof t.data === "object" && "path" in (t.data as object) ? { path: (t.data as Record<string, unknown>).path } : {}) as Record<string, unknown>,
+      status: (t.ok ? "done" : "error") as "done" | "error",
+    }));
+  }, [streamEvents, toolResults]);
+
+  const hasPlan = content.trim().length > 0;
+  const hasSteps = steps.length > 0;
+  if (!hasPlan && !hasSteps) return null;
+
+  return (
+    <div className="rounded-2xl border border-border/80 bg-card/50 overflow-hidden shadow-[var(--shadow-sm)] ring-1 ring-black/[0.02] dark:ring-white/[0.04]">
+      {hasPlan ? (
+        <div className="px-4 py-3 border-b border-border/60">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+            <ListChecks size={12} />
+            Plan
+          </div>
+          <div className="text-[13px] leading-relaxed text-foreground">
+            <ChatMarkdown content={content} />
+            {streaming ? (
+              <span className="inline-block w-1.5 h-4 bg-foreground/40 ml-0.5 animate-pulse rounded-sm align-middle" />
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {hasSteps ? (
+        <div className="px-4 py-3">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+            <Activity size={12} />
+            Steps
+          </div>
+          <ul className="space-y-1.5">
+            {steps.map((step, idx) => (
+              <li
+                key={step.toolCallId}
+                className={cn(
+                  "flex items-center gap-2 text-[13px] rounded-lg px-2.5 py-1.5 transition-colors",
+                  step.status === "active" && "bg-primary/10 text-foreground font-medium",
+                  step.status === "done" && "text-muted-foreground",
+                  step.status === "error" && "text-destructive",
+                )}
+              >
+                {step.status === "done" ? (
+                  <Check size={14} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+                ) : step.status === "active" ? (
+                  <Loader2 size={14} className="shrink-0 animate-spin text-primary" />
+                ) : (
+                  <X size={14} className="shrink-0" />
+                )}
+                <span className="truncate">{getStepLabel(step.toolName, step.args)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function InlineApprovalRow({
+  approvalId,
+  toolName,
+  sessionKey,
+  onResolved,
+}: {
+  approvalId: string;
+  toolName: string;
+  sessionKey?: {
+    workspaceId: string;
+    agentId: string;
+    channel: string;
+    chatId: string;
+    threadId?: string;
+  };
+  onResolved: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+  const run = async (action: "once" | "session" | "tool24h" | "deny") => {
+    setBusy(true);
+    setErr(null);
+    try {
+      if (action === "deny") {
+        await resolveApproval({ requestId: approvalId, decision: "denied" });
+      } else if (action === "once") {
+        await resolveApproval({
+          requestId: approvalId,
+          decision: "approved",
+          grant: { scope: { type: "once", toolName } },
+        });
+      } else if (action === "session" && sessionKey?.workspaceId && sessionKey.agentId) {
+        await resolveApproval({
+          requestId: approvalId,
+          decision: "approved",
+          grant: { scope: { type: "session", sessionKey } },
+        });
+      } else if (action === "tool24h") {
+        const day = Date.now() + 24 * 60 * 60 * 1000;
+        await resolveApproval({
+          requestId: approvalId,
+          decision: "approved",
+          grant: { expiresAt: day, scope: { type: "tool", toolName } },
+        });
+      }
+      setDone(true);
+      onResolved();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Resolve failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (done) {
+    return (
+      <p className="text-[12px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+        <Check size={12} /> Resolved — send again or continue in chat.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] text-muted-foreground">Resolve</span>
+        <select
+          className="h-8 rounded-lg border border-border bg-surface-1 px-2 text-[12px] max-w-[200px]"
+          disabled={busy}
+          defaultValue=""
+          onChange={(ev) => {
+            const v = ev.target.value as "once" | "session" | "tool24h" | "deny" | "";
+            ev.target.value = "";
+            if (!v) return;
+            void run(v);
+          }}
+        >
+          <option value="" disabled>
+            Choose…
+          </option>
+          <option value="once">Approve once</option>
+          {sessionKey?.workspaceId ? <option value="session">Allow this chat session</option> : null}
+          <option value="tool24h">Allow tool 24h</option>
+          <option value="deny">Deny</option>
+        </select>
+        {busy ? <Loader2 size={14} className="animate-spin text-muted-foreground" /> : null}
+        <Link href="/approvals" className="text-[11px] text-muted-foreground hover:underline">
+          All approvals
+        </Link>
+      </div>
+      {err ? <p className="text-[11px] text-destructive">{err}</p> : null}
+    </div>
+  );
+}
+
+function StreamEventsList({
+  events,
+  onOpenArtifact,
+  onApprovalResolved,
+}: {
+  events: StreamEvent[];
+  onOpenArtifact?: (path: string) => void;
+  onApprovalResolved?: () => void;
+}) {
   const toolRuns = useMemo(() => {
     const runs: Array<{ toolCallId: string; toolName: string; args: Record<string, unknown>; status: "pending" | "ok" | "error"; result?: unknown; error?: string }> = [];
     const byId = new Map<string, (typeof runs)[0]>();
@@ -1200,15 +1774,16 @@ function StreamEventsList({ events, onOpenArtifact }: { events: StreamEvent[]; o
         const path = run.result != null && typeof run.result === "object" && typeof (run.result as Record<string, unknown>).path === "string"
           ? (run.result as Record<string, unknown>).path as string
           : null;
-        const isFileWrite = (run.toolName === "fs.write" || run.toolName === "fs.append") && path != null && run.status === "ok";
+        const isWriteTool = ["fs.write", "fs_write", "fs.append", "fs_append"].includes(run.toolName);
+        const isFileWrite = isWriteTool && path != null && run.status === "ok";
         if (isFileWrite && onOpenArtifact) {
           const basename = path!.split("/").filter(Boolean).pop() ?? path!;
           return (
-            <div key={run.toolCallId} className="rounded-xl border border-border bg-surface-1 overflow-hidden">
-              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/30">
-                <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-                  <Wrench size={12} />
-                <span>{run.toolName === "fs.write" ? "Created file" : "Appended to file"}</span>
+            <div key={run.toolCallId} className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-[var(--shadow-sm)] ring-1 ring-black/[0.02] dark:ring-white/[0.04]">
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-border/60 bg-muted/25">
+                <div className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+                  <Wrench size={12} strokeWidth={1.8} />
+                <span>{run.toolName === "fs.append" || run.toolName === "fs_append" ? "Appended to file" : "Created file"}</span>
                 </div>
                 <Badge variant="success" className="text-[10px]">Done</Badge>
               </div>
@@ -1229,8 +1804,8 @@ function StreamEventsList({ events, onOpenArtifact }: { events: StreamEvent[]; o
           );
         }
         return (
-        <div key={run.toolCallId} className="rounded-xl border border-border bg-surface-1 overflow-hidden">
-          <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/30">
+        <div key={run.toolCallId} className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-[var(--shadow-sm)] ring-1 ring-black/[0.02] dark:ring-white/[0.04]">
+          <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border-b border-border/60 bg-muted/25">
             <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
               {run.status === "pending" ? <Loader2 size={12} className="animate-spin shrink-0" /> : <Wrench size={12} className="shrink-0" />}
               <span>{getToolLabel(run.toolName, run.status)}</span>
@@ -1244,12 +1819,22 @@ function StreamEventsList({ events, onOpenArtifact }: { events: StreamEvent[]; o
       {approval ? (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 border-b border-amber-500/20">
-            <div className="flex items-center gap-2 text-[12px] text-amber-700 dark:text-amber-400"><ShieldAlert size={12} /><span>Approval required</span></div>
-            <Badge variant="warning" className="text-[10px]">Pending</Badge>
+            <div className="flex items-center gap-2 text-[12px] text-amber-700 dark:text-amber-400">
+              <ShieldAlert size={12} />
+              <span>Approval required{approval.toolName ? ` · ${approval.toolName}` : ""}</span>
+            </div>
+            <Badge variant="warning" className="text-[10px]">
+              Pending
+            </Badge>
           </div>
           <div className="px-3 py-2 space-y-1.5">
-            <p className="text-[12px] text-muted-foreground">This action is paused. Resolve it in Approvals to continue.</p>
-            <Link href="/approvals"><Button size="sm" variant="outline"><ShieldAlert size={12} />Open Approvals</Button></Link>
+            <p className="text-[12px] text-muted-foreground">High-risk step is paused. Resolve below, then retry or continue.</p>
+            <InlineApprovalRow
+              approvalId={approval.approvalId}
+              toolName={approval.toolName ?? "unknown"}
+              sessionKey={approval.sessionKey}
+              onResolved={() => onApprovalResolved?.()}
+            />
           </div>
         </div>
       ) : null}
@@ -1277,8 +1862,22 @@ function StreamToolResultBody({ toolName, error, result }: { toolName: string; e
   );
 }
 
-function ToolResultBlock({ tool, onOpenArtifact }: { tool: ToolResult; onOpenArtifact?: (path: string) => void }) {
-  const isApprovalNeeded = !tool.ok && tool.error?.includes("Approval required");
+function ToolResultBlock({
+  tool,
+  onOpenArtifact,
+  sessionMeta: _sessionMeta,
+  onApprovalResolved,
+}: {
+  tool: ToolResult;
+  onOpenArtifact?: (path: string) => void;
+  sessionMeta?: SessionMeta;
+  onApprovalResolved?: () => void;
+}) {
+  const approvalId =
+    tool.data != null && typeof tool.data === "object" && typeof (tool.data as Record<string, unknown>).approvalId === "string"
+      ? ((tool.data as Record<string, unknown>).approvalId as string)
+      : null;
+  const isApprovalNeeded = (!tool.ok && tool.error?.includes("Approval required")) || (approvalId != null && !tool.ok);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const label = getToolLabel(tool.toolName, tool.ok ? "ok" : "error");
   const summary = !isApprovalNeeded && tool.data != null ? getToolResultSummary(tool.toolName, tool.data, tool.error) : null;
@@ -1286,7 +1885,8 @@ function ToolResultBlock({ tool, onOpenArtifact }: { tool: ToolResult; onOpenArt
   const path = tool.data != null && typeof tool.data === "object" && typeof (tool.data as Record<string, unknown>).path === "string"
     ? (tool.data as Record<string, unknown>).path as string
     : null;
-  const isFileWrite = (tool.toolName === "fs.write" || tool.toolName === "fs.append") && path != null;
+  const isFileWrite =
+    (tool.toolName === "fs.write" || tool.toolName === "fs_write" || tool.toolName === "fs.append" || tool.toolName === "fs_append") && path != null;
 
   if (isFileWrite && tool.ok && onOpenArtifact) {
     const basename = path.split("/").filter(Boolean).pop() ?? path;
@@ -1325,10 +1925,26 @@ function ToolResultBlock({ tool, onOpenArtifact }: { tool: ToolResult; onOpenArt
         </div>
         {isApprovalNeeded ? <Badge variant="warning" className="text-[10px]">Pending</Badge> : <Badge variant={tool.ok ? "success" : "destructive"} className="text-[10px]">{tool.ok ? "Done" : "Error"}</Badge>}
       </div>
-      {isApprovalNeeded ? (
+      {isApprovalNeeded && approvalId ? (
         <div className="px-3 py-2 space-y-1.5">
-          <p className="text-[12px] text-muted-foreground">Resolve in Approvals to continue.</p>
-          <Link href="/approvals"><Button size="sm" variant="outline"><ShieldAlert size={12} />Open Approvals</Button></Link>
+          <InlineApprovalRow
+            approvalId={approvalId}
+            toolName={tool.toolName}
+            sessionKey={undefined}
+            onResolved={() => onApprovalResolved?.()}
+          />
+          <Link href="/approvals" className="text-[11px] text-muted-foreground hover:underline inline-block">
+            Open full Approvals page
+          </Link>
+        </div>
+      ) : isApprovalNeeded ? (
+        <div className="px-3 py-2 space-y-1.5">
+          <Link href="/approvals">
+            <Button size="sm" variant="outline">
+              <ShieldAlert size={12} />
+              Open Approvals
+            </Button>
+          </Link>
         </div>
       ) : (
         <>
@@ -1461,11 +2077,11 @@ function ContextPanel({
 }) {
   const Wrapper = variant === "drawer" ? "div" : "aside";
   return (
-    <Wrapper className={variant === "aside" ? "hidden xl:flex min-h-0 flex-col border-l border-border bg-surface-1/50" : "min-h-0 flex flex-col flex-1"}>
-      <div className="shrink-0 border-b border-border px-4 py-3 flex items-start justify-between gap-2">
+    <Wrapper className={variant === "aside" ? "hidden xl:flex min-h-0 w-[340px] shrink-0 flex-col border-l border-border/80 bg-background/80 backdrop-blur-md" : "min-h-0 flex flex-col flex-1"}>
+      <div className="shrink-0 border-b border-border/80 px-4 py-3.5 flex items-start justify-between gap-2 bg-muted/20">
         <div>
-          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Context</div>
-          <div className="mt-0.5 text-[12px] text-muted-foreground">Live context from this session.</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Context</div>
+          <div className="mt-1 text-[12px] text-muted-foreground leading-snug">Live context for this session.</div>
           <div className="mt-2 flex flex-wrap gap-x-2 gap-y-1 text-[11px]">
             <Link href="/files" className="text-muted-foreground hover:text-foreground no-underline">Files</Link>
             <span className="text-muted-foreground/50">·</span>
@@ -1484,16 +2100,16 @@ function ContextPanel({
           </Button>
         ) : null}
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-1">
         <Tabs value={contextTab} onValueChange={(v) => setContextTab(v as ContextTab)}>
-          <TabsList className="flex flex-wrap gap-x-3 gap-y-1 pb-2">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="project">Project</TabsTrigger>
-            <TabsTrigger value="files">Files</TabsTrigger>
-            <TabsTrigger value="approvals">Approvals</TabsTrigger>
-            <TabsTrigger value="memory">Memory</TabsTrigger>
-            <TabsTrigger value="traces">Traces</TabsTrigger>
-            <TabsTrigger value="workflow">Workflow</TabsTrigger>
+          <TabsList className="!flex flex-wrap w-full gap-1 p-1 mb-1">
+            <TabsTrigger value="overview" className="!px-2 !py-1.5 !text-[10px]">Overview</TabsTrigger>
+            <TabsTrigger value="project" className="!px-2 !py-1.5 !text-[10px]">Project</TabsTrigger>
+            <TabsTrigger value="files" className="!px-2 !py-1.5 !text-[10px]">Files</TabsTrigger>
+            <TabsTrigger value="approvals" className="!px-2 !py-1.5 !text-[10px]">Approvals</TabsTrigger>
+            <TabsTrigger value="memory" className="!px-2 !py-1.5 !text-[10px]">Memory</TabsTrigger>
+            <TabsTrigger value="traces" className="!px-2 !py-1.5 !text-[10px]">Traces</TabsTrigger>
+            <TabsTrigger value="workflow" className="!px-2 !py-1.5 !text-[10px]">Flow</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-3">
@@ -1547,7 +2163,7 @@ function ContextPanel({
             <SidecarCard icon={<ShieldAlert size={14} />} title="Approvals needed" actionHref="/approvals" actionLabel="Full view">
               {approvals.length > 0 ? (
                 <div className="space-y-2">{approvals.slice(0, 4).map((a) => (
-                  <div key={a.id} className="rounded-md border border-border bg-surface-2 px-3 py-2">
+                  <div key={a.id} className="rounded-xl border border-border/80 bg-muted/30 px-3 py-2.5 shadow-[var(--shadow-sm)]">
                     <div className="text-[12px] font-medium text-foreground">{a.toolName}</div>
                     <div className="text-[11px] text-muted-foreground">{a.agentId} · {a.risk} risk</div>
                   </div>
@@ -1560,7 +2176,7 @@ function ContextPanel({
             <SidecarCard icon={<Brain size={14} />} title="Memory hits" actionHref="/memory" actionLabel="Full view">
               {memoryHits.length > 0 ? (
                 <div className="space-y-2">{memoryHits.map((h) => (
-                  <div key={h.path} className="rounded-md border border-border bg-surface-2 px-3 py-2">
+                  <div key={h.path} className="rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5 shadow-[var(--shadow-sm)]">
                     <div className="text-[11px] text-foreground font-[family-name:var(--font-geist-mono)] break-all">{h.path}</div>
                     <div className="mt-1 text-[11px] text-muted-foreground line-clamp-3 whitespace-pre-wrap">{h.excerpt}</div>
                   </div>
@@ -1570,7 +2186,7 @@ function ContextPanel({
           </TabsContent>
 
           <TabsContent value="traces" className="space-y-3">
-            <SidecarCard icon={<Sparkles size={14} />} title="Trace timeline" actionHref="/traces" actionLabel="Full view">
+            <SidecarCard icon={<Activity size={14} />} title="Trace timeline" actionHref="/traces" actionLabel="Full view">
               {traces.length > 0 ? (
                 <div className="space-y-2">{traces.slice(0, 6).map((t) => (
                   <div key={t.id} className="rounded-md border border-border bg-surface-2 px-3 py-2">
@@ -1586,7 +2202,7 @@ function ContextPanel({
             <SidecarCard icon={<Workflow size={14} />} title="Workflow state" actionHref="/workflows" actionLabel="Full view">
               {activeWorkflows.length > 0 ? (
                 <div className="space-y-2">{activeWorkflows.slice(0, 4).map((w) => (
-                  <div key={w.id} className="rounded-md border border-border bg-surface-2 px-3 py-2">
+                  <div key={w.id} className="rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5 shadow-[var(--shadow-sm)]">
                     <div className="flex items-center gap-2"><StatusDot variant={w.status === "running" ? "running" : "neutral"} pulse={w.status === "running"} /><div className="text-[12px] text-foreground">{w.name}</div></div>
                     <div className="mt-1 text-[11px] text-muted-foreground">{w.steps.filter((s) => s.status === "completed").length}/{w.steps.length} steps · {w.status}</div>
                   </div>
@@ -1602,16 +2218,19 @@ function ContextPanel({
 
 function SidecarCard({ icon, title, children, actionHref, actionLabel }: { icon: React.ReactNode; title: string; children: React.ReactNode; actionHref?: string; actionLabel?: string }) {
   return (
-    <div className="rounded-xl border border-border bg-background p-4">
+    <div className="rounded-2xl border border-border/80 bg-surface-1 p-4 shadow-[var(--shadow-sm)]">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-[13px] font-medium text-foreground"><span className="text-muted-foreground">{icon}</span>{title}</div>
-        {actionHref && actionLabel ? <Link href={actionHref} className="text-[11px] text-muted-foreground hover:text-foreground transition-colors no-underline">{actionLabel}</Link> : null}
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-foreground tracking-tight">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-muted/60 text-muted-foreground">{icon}</span>
+          {title}
+        </div>
+        {actionHref && actionLabel ? <Link href={actionHref} className="text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors no-underline uppercase tracking-wide">{actionLabel}</Link> : null}
       </div>
-      <div className="mt-3">{children}</div>
+      <div className="mt-3 pl-0">{children}</div>
     </div>
   );
 }
 
 function EmptyCopy({ text }: { text: string }) {
-  return <div className="text-[12px] text-muted-foreground">{text}</div>;
+  return <div className="text-[11px] text-muted-foreground leading-relaxed">{text}</div>;
 }

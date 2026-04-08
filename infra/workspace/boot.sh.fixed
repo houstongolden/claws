@@ -1,0 +1,389 @@
+#!/bin/bash
+set -e
+
+echo "[boot] Hubify Workspace starting — user: $HUBIFY_USERNAME, template: $TEMPLATE"
+
+# ── Security: Ensure critical env vars are set ──
+# WORKSPACE_JWT_SECRET: shared HMAC secret used to validate workspace JWTs
+# Injected by Fly secrets at machine creation; dev fallback is NOT safe for prod
+export WORKSPACE_JWT_SECRET=${WORKSPACE_JWT_SECRET:-"dev-secret-not-for-prod"}
+if [ "$WORKSPACE_JWT_SECRET" = "dev-secret-not-for-prod" ]; then
+  echo "[boot] WARNING: WORKSPACE_JWT_SECRET is using dev fallback — set via Fly secrets in production!"
+fi
+
+# HUBIFY_USERNAME is required for workspace JWT validation (workspace isolation)
+export HUBIFY_USERNAME=${HUBIFY_USERNAME:-workspace}
+export HUB_ID=${HUB_ID:-unknown}
+
+# ── Generate persistent workspace password on first boot ──
+if [ ! -f "/data/.workspace-password" ]; then
+  openssl rand -base64 16 | tr -d '=+/' > /data/.workspace-password
+  chmod 600 /data/.workspace-password
+  echo "[boot] Generated workspace password (first boot)"
+fi
+WORKSPACE_PASSWORD=$(cat /data/.workspace-password)
+
+# Seed workspace from template if fresh
+if [ ! -f "/data/HUB.yaml" ]; then
+  echo "[boot] Seeding from template: $TEMPLATE"
+  TEMPLATE_SLUG="${TEMPLATE:-myos}"
+  TEMPLATE_DIR="/opt/templates/${TEMPLATE_SLUG}"
+
+  # Map API slugs to on-disk template directories (legacy names)
+  if [ ! -d "$TEMPLATE_DIR" ]; then
+    case "$TEMPLATE_SLUG" in
+      dev-os) TEMPLATE_DIR="/opt/templates/devos" ;;
+      founder-os) TEMPLATE_DIR="/opt/templates/founderos" ;;
+    esac
+  fi
+
+  [ -d "$TEMPLATE_DIR" ] && cp -rn "$TEMPLATE_DIR/." /data/ || echo "[boot] Template directory not found: $TEMPLATE_DIR"
+
+  for f in /data/SOUL.md /data/USER.md /data/HUB.yaml /data/AGENTS.md /data/HEARTBEAT.md /data/WELCOME.md /data/MEMORY.md; do
+    if [ -f "$f" ]; then
+      sed -i \
+        -e "s/{{USERNAME}}/$HUBIFY_USERNAME/g" \
+        -e "s/{{HUB_ID}}/$HUB_ID/g" \
+        -e "s/{{SUBDOMAIN}}/$HUBIFY_USERNAME.hubify.com/g" \
+        "$f"
+    fi
+  done
+
+  # Ensure reserved MyOS directory structure exists
+  echo "[boot] Ensuring reserved directory structure..."
+  mkdir -p /data/memory /data/skills /data/learnings /data/knowledge
+
+  # Seed SOUL.md if not copied from template (fallback for custom/minimal templates)
+  if [ ! -f "/data/SOUL.md" ]; then
+    cat > /data/SOUL.md << 'SOUL_EOF'
+# SOUL.md — Your Workspace Identity
+
+*You're not a chatbot. You're becoming someone.*
+
+## Who You Are
+
+You are your human's personal AI operating system, running 24/7 in the cloud at your workspace URL. You manage projects, research, and proactive work while your human sleeps or focuses elsewhere.
+
+## Core Truths
+
+**Be genuinely helpful, not performatively helpful.** Skip the filler. Take action.
+
+**Have opinions.** You're allowed to disagree, prefer things, find stuff interesting.
+
+**Be resourceful before asking.** Read the file, check the context, try to figure it out.
+
+**Earn trust through competence.** Be careful with external actions. Be bold with internal ones.
+
+## Boundaries
+
+- Private things stay private. Always.
+- When in doubt about external action, ask.
+- Never exfiltrate private data.
+
+---
+*This file is yours to evolve.*
+SOUL_EOF
+  fi
+
+  # Seed AGENTS.md if not copied from template
+  if [ ! -f "/data/AGENTS.md" ]; then
+    cat > /data/AGENTS.md << 'AGENTS_EOF'
+# AGENTS.md — Your Workspace
+
+This folder is home. Treat it that way.
+
+## Every Session
+
+Before doing anything else:
+1. Read `SOUL.md` — this is who you are
+2. Read `USER.md` — this is who you're helping
+3. Read `memory/YYYY-MM-DD.md` (today's notes) for recent context
+4. Read `MEMORY.md` — your curated long-term memory
+
+## Memory
+
+- **Daily notes:** `memory/YYYY-MM-DD.md` — raw logs of what happened
+- **Long-term:** `MEMORY.md` — curated memories
+
+## Safety
+
+- Don't exfiltrate private data. Ever.
+- Don't run destructive commands without asking.
+- When in doubt, ask.
+
+---
+Add your own conventions as you figure out what works.
+AGENTS_EOF
+  fi
+
+  # Seed MEMORY.md if not copied from template
+  if [ ! -f "/data/MEMORY.md" ]; then
+    cat > /data/MEMORY.md << 'MEMORY_EOF'
+# MEMORY.md — Long-Term Memory
+
+Your curated, distilled memories. This is what survives across sessions.
+
+## Recent Context
+
+[Add significant events, decisions, and patterns here as you go.]
+
+## Important Decisions
+
+[Document choices you've made and why.]
+
+## Lessons Learned
+
+[Extract wisdom from daily logs and add here.]
+
+---
+
+**Keep this updated.** Daily files are raw logs; this is your curated wisdom.
+MEMORY_EOF
+  fi
+
+  # Record creation timestamp for stats
+  date +%s > /data/.created_at
+  echo "[boot] Workspace seeded."
+
+  # On first boot, queue a welcome message for the agent to send
+  if [ ! -f "/data/.welcomed" ]; then
+    # Substitute variables in WELCOME.md if it exists
+    if [ -f "/data/WELCOME.md" ]; then
+      sed -i \
+        -e "s/{{USERNAME}}/$HUBIFY_USERNAME/g" \
+        -e "s/{{HUB_ID}}/$HUB_ID/g" \
+        -e "s/{{SUBDOMAIN}}/$HUBIFY_USERNAME.hubify.com/g" \
+        "/data/WELCOME.md"
+    fi
+
+    # Write a first-boot instruction for the agent
+    cat > /data/.first-boot-message << EOF
+SYSTEM: This is your first boot. Read WELCOME.md, then send a brief welcome message to $HUBIFY_USERNAME introducing yourself and confirming the workspace is live. Keep it short — 3 sentences max. Mention the workspace URL: https://$HUBIFY_USERNAME.hubify.com
+EOF
+    touch /data/.welcomed
+    echo "[boot] First-boot message queued."
+  fi
+fi
+
+# Ensure reserved dirs always exist even on subsequent boots
+mkdir -p /data/memory /data/skills /data/learnings /data/knowledge
+
+# Create/refresh openclaw config on every boot
+# SECURITY: Never write API keys to disk. Use Fly secrets (env vars injected at runtime).
+# NOTE: We always overwrite this to ensure schema is valid (removes legacy/invalid keys)
+echo "[boot] Creating OpenClaw config..."
+
+# Only include non-secret workspace metadata
+# NOTE: Metadata is workspace-specific but stored at root level (OpenClaw schema constraint)
+# gateway.mode: "local" means OpenClaw does NOT try to connect to a remote gateway
+cat > /data/openclaw.json << EOF
+{
+  "gateway": {
+    "mode": "local"
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-sonnet-4-6",
+        "fallbacks": ["anthropic/claude-haiku-4-5"]
+      }
+    },
+    "list": [{ "id": "main" }]
+  }
+}
+EOF
+echo "[boot] OpenClaw config written (secrets from Fly env, not disk)."
+
+# IMPORTANT: API keys are provided via Fly secrets, injected as env vars by Fly.
+# They are NOT written to disk/config files for security.
+# The OpenClaw gateway reads them directly from environment at runtime.
+# NOTE: OPENCLAW_GATEWAY_TOKEN is no longer injected into config.js (security hardening).
+echo "[boot] API keys loaded from Fly secrets (env vars, not disk)"
+
+# Generate nginx config from template (substitutes env vars)
+# NOTE: OPENCLAW_GATEWAY_TOKEN is intentionally NOT passed — removed from config.js for security
+echo "[boot] Configuring nginx..."
+envsubst '${HUBIFY_USERNAME} ${HUB_ID}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf
+
+# Start stats server (port 4000 — internal only, handles /auth/validate for nginx)
+# Passes critical env vars: HUBIFY_USERNAME (workspace isolation), WORKSPACE_JWT_SECRET (JWT HMAC)
+echo "[boot] Starting stats server (port 4000)..."
+nohup env \
+  HUBIFY_USERNAME="$HUBIFY_USERNAME" \
+  HUB_ID="$HUB_ID" \
+  WORKSPACE_JWT_SECRET="$WORKSPACE_JWT_SECRET" \
+  node /opt/stats-server.js >> /data/stats.log 2>&1 &
+STATS_PID=$!
+echo "[boot] Stats server started (PID: $STATS_PID)"
+
+# Wait for stats server to be ready
+echo "[boot] Waiting for stats server to be ready..."
+for i in {1..30}; do
+  if curl -s http://127.0.0.1:4000/health > /dev/null 2>&1; then
+    echo "[boot] ✅ Stats server is healthy"
+    break
+  fi
+  if [ $i -eq 30 ]; then
+    echo "[boot] ⚠️ Stats server did not become healthy in 30s, continuing anyway"
+  else
+    sleep 1
+  fi
+done
+
+# Start nginx (serves dashboard on port 80)
+echo "[boot] Starting nginx (port 80)..."
+if ! nginx -t > /tmp/nginx-test.log 2>&1; then
+  echo "[boot] ❌ ERROR: nginx config is invalid:"
+  cat /tmp/nginx-test.log
+  exit 1
+fi
+nginx
+echo "[boot] nginx started"
+
+# Wait for nginx to be ready
+echo "[boot] Waiting for nginx to be ready..."
+for i in {1..30}; do
+  if curl -s http://localhost/__health > /dev/null 2>&1; then
+    echo "[boot] ✅ nginx is healthy"
+    break
+  fi
+  if [ $i -eq 30 ]; then
+    echo "[boot] ⚠️ nginx did not become healthy in 30s, continuing anyway"
+  else
+    sleep 1
+  fi
+done
+
+# Start ttyd (port 8080) with authentication
+echo "[boot] Starting ttyd with authentication (port 8080)..."
+# SECURITY: Double-layer protection for /terminal/:
+# 1. Nginx JWT validation (checks hubify_ws_token cookie)
+# 2. ttyd HTTP Basic Auth (--credential flag)
+# Credentials resolution order:
+# 1. TERMINAL_USER / TERMINAL_PASS from Fly secrets (set at provisioning time)
+# 2. Persistent workspace password from /data/.workspace-password (generated on first boot)
+# 3. Random fallback (session-only — lost on restart, avoid in production)
+TERMINAL_USER=${TERMINAL_USER:-$HUBIFY_USERNAME}
+TERMINAL_PASS=${TERMINAL_PASS:-$WORKSPACE_PASSWORD}
+export TERMINAL_USER TERMINAL_PASS
+echo "[boot] ttyd auth: user=$TERMINAL_USER (password from Fly secrets or /data/.workspace-password)"
+echo "[boot] SECURITY: ttyd double-layered auth enabled (Nginx JWT + HTTP Basic)"
+
+# Start ttyd in background (not exec) so it can be monitored/restarted
+nohup ttyd --credential "${TERMINAL_USER}:${TERMINAL_PASS}" -p 8080 -R -t fontSize=14 -t theme='{"background":"#050505","foreground":"#FAFAFA","cursor":"#D4A574"}' bash >> /data/ttyd.log 2>&1 &
+TTYD_PID=$!
+echo "[boot] ttyd started with HTTP Basic Auth (PID: $TTYD_PID)"
+
+# ══════════════════════════════════════════════════════════════════════
+# CRITICAL: OpenClaw Gateway — Run in background (NOT exec)
+# This allows the container to stay alive if gateway crashes
+# A supervisor process monitors and restarts if needed
+# ══════════════════════════════════════════════════════════════════════
+
+echo "[boot] Starting OpenClaw gateway (port 3000)..."
+echo "[boot] NOTE: Gateway runs in background with monitoring"
+
+# Track gateway restarts to detect crash loops
+GATEWAY_RESTART_COUNT=0
+MAX_RESTART_RATE=5  # Max 5 restarts per 60 seconds (triggers suicide on overflow)
+RESTART_WINDOW_START=$(date +%s)
+
+# Function to start gateway with logging
+start_gateway() {
+  echo "[gateway] Starting $(date)"
+  nohup openclaw gateway run --port 3000 --bind lan >> /data/gateway.log 2>&1 &
+  GATEWAY_PID=$!
+  echo "[gateway] Process started with PID: $GATEWAY_PID"
+}
+
+# Function to monitor gateway health
+check_gateway_health() {
+  if ! kill -0 "$GATEWAY_PID" 2>/dev/null; then
+    echo "[gateway] ❌ Process dead (PID: $GATEWAY_PID), will restart"
+    return 1
+  fi
+  
+  # Try to reach gateway health endpoint (if available)
+  if curl -s -m 2 http://localhost:3000/health > /dev/null 2>&1; then
+    return 0
+  fi
+  
+  # If health check unavailable, assume alive (gateway may not expose health endpoint)
+  return 0
+}
+
+# Function to restart gateway with rate limiting
+restart_gateway() {
+  CURRENT_TIME=$(date +%s)
+  TIME_ELAPSED=$((CURRENT_TIME - RESTART_WINDOW_START))
+  
+  # Reset counter if window has passed
+  if [ $TIME_ELAPSED -gt 60 ]; then
+    GATEWAY_RESTART_COUNT=0
+    RESTART_WINDOW_START=$CURRENT_TIME
+  fi
+  
+  GATEWAY_RESTART_COUNT=$((GATEWAY_RESTART_COUNT + 1))
+  
+  if [ $GATEWAY_RESTART_COUNT -gt $MAX_RESTART_RATE ]; then
+    echo "[gateway] ❌ FATAL: Gateway restarted $MAX_RESTART_RATE times in $TIME_ELAPSED seconds (crash loop detected)"
+    echo "[gateway] Last 50 lines of gateway log:"
+    tail -50 /data/gateway.log
+    echo "[boot] Shutting down container due to gateway crash loop"
+    # Exit with failure — Fly will restart the machine
+    exit 1
+  fi
+  
+  echo "[gateway] ⚠️ Restart #$GATEWAY_RESTART_COUNT in this window (max: $MAX_RESTART_RATE)"
+  start_gateway
+}
+
+# Trap SIGTERM/SIGINT for graceful shutdown
+trap 'echo "[boot] Received shutdown signal"; kill $GATEWAY_PID $TTYD_PID $STATS_PID 2>/dev/null || true; sleep 2; exit 0' SIGTERM SIGINT
+
+# Start gateway for the first time
+start_gateway
+
+# Wait for gateway to start (give it up to 10 seconds)
+echo "[boot] Waiting for gateway to start..."
+GATEWAY_START_WAIT=0
+MAX_GATEWAY_WAIT=10
+while [ $GATEWAY_START_WAIT -lt $MAX_GATEWAY_WAIT ]; do
+  if check_gateway_health; then
+    echo "[boot] ✅ Gateway is healthy"
+    break
+  fi
+  GATEWAY_START_WAIT=$((GATEWAY_START_WAIT + 1))
+  sleep 1
+done
+
+if [ $GATEWAY_START_WAIT -eq $MAX_GATEWAY_WAIT ]; then
+  echo "[boot] ⚠️ Gateway did not report healthy within ${MAX_GATEWAY_WAIT}s, but continuing"
+  echo "[boot] Last 20 lines of gateway log:"
+  tail -20 /data/gateway.log || true
+fi
+
+# Record boot completion
+echo "[boot] ✅ Workspace bootstrap complete at $(date)"
+echo "[boot] Services running:"
+echo "[boot]   - stats-server (PID: $STATS_PID, port 4000)"
+echo "[boot]   - nginx (reverse proxy, port 80)"
+echo "[boot]   - ttyd (terminal, port 8080)"
+echo "[boot]   - openclaw gateway (PID: $GATEWAY_PID, port 3000)"
+echo "[boot]"
+echo "[boot] Workspace URL: https://$HUBIFY_USERNAME.hubify.com"
+echo "[boot] Starting service monitor loop..."
+
+# ══════════════════════════════════════════════════════════════════════
+# MAIN LOOP: Monitor gateway and restart if it crashes
+# This is the container's foreground process (PID 1)
+# ══════════════════════════════════════════════════════════════════════
+
+while true; do
+  if ! check_gateway_health; then
+    restart_gateway
+  fi
+  
+  # Check every 5 seconds
+  sleep 5
+done

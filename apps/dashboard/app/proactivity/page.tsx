@@ -107,7 +107,7 @@ export default function ProactivityPage() {
             </TabsList>
 
             <TabsContent value="jobs">
-              <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground mb-4">
+              <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 text-[13px] text-muted-foreground mb-4">
                 Built-in jobs (morning brief, EOD, approvals watchdog, stale project) run on schedule or on demand.
                 Use <strong>Run now</strong> to trigger once; pause to stop recurring runs.
               </div>
@@ -118,7 +118,7 @@ export default function ProactivityPage() {
                 </div>
               ) : null}
               {error ? (
-                <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">
                   {error}
                 </div>
               ) : null}
@@ -133,7 +133,7 @@ export default function ProactivityPage() {
                 {jobs.map((job) => (
                   <div
                     key={job.id}
-                    className="rounded-lg border border-border bg-surface-1 flex items-center justify-between gap-3 px-4 py-3"
+                    className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] flex items-center justify-between gap-3 px-4 py-3"
                   >
                     <div className="min-w-0">
                       <div className="text-[13px] font-medium truncate">{job.name}</div>
@@ -187,7 +187,7 @@ export default function ProactivityPage() {
                   notifications.map((n) => (
                     <div
                       key={n.id}
-                      className={`rounded-lg border border-border bg-surface-1 px-4 py-3 ${!n.readAt ? "border-l-4 border-l-primary" : ""}`}
+                      className={`rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] px-4 py-3 ${!n.readAt ? "border-l-4 border-l-primary" : ""}`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -222,7 +222,7 @@ export default function ProactivityPage() {
                   runs.map((r) => (
                     <div
                       key={r.id}
-                      className="rounded-lg border border-border bg-surface-1 px-4 py-3"
+                      className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] px-4 py-3"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
@@ -251,7 +251,7 @@ export default function ProactivityPage() {
             </TabsContent>
 
             <TabsContent value="decisions">
-              <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground mb-4">
+              <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 text-[13px] text-muted-foreground mb-4">
                 Every proactive trigger goes through the decision engine: trigger → evaluation → decision (ignore, bundle, notify, act_silently, delegate, escalate) → audit.
               </div>
               <div className="space-y-2">
@@ -263,7 +263,7 @@ export default function ProactivityPage() {
                   />
                 ) : (
                   decisions.map((d) => (
-                    <div key={d.id} className="rounded-lg border border-border bg-surface-1 px-4 py-3">
+                    <div key={d.id} className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] px-4 py-3">
                       <div className="flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <div className="text-[13px] font-medium">{d.outcome}</div>

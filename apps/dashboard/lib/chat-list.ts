@@ -1,5 +1,7 @@
 "use client";
 
+import { CHAT_HISTORY_PREFIX } from "./session";
+
 export const CHAT_LIST_KEY = "claws-chat-list";
 
 export type ChatListItem = {
@@ -75,6 +77,43 @@ export function toggleStar(chatId: string): boolean {
   const nextStarred = !entry.starred;
   updateChatInList(chatId, { starred: nextStarred });
   return nextStarred;
+}
+
+/**
+ * Find local threads that have saved history but no sidebar row (e.g. after cache clear of list only).
+ */
+export function recoverChatsFromStorage(): number {
+  if (typeof window === "undefined") return 0;
+  let added = 0;
+  const list = getChatList();
+  const known = new Set(list.map((c) => c.chatId));
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(CHAT_HISTORY_PREFIX)) continue;
+    const chatId = key.slice(CHAT_HISTORY_PREFIX.length);
+    if (!chatId || chatId.startsWith("conv_") || known.has(chatId)) continue;
+    try {
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? (JSON.parse(raw) as unknown[]) : [];
+      if (!Array.isArray(parsed) || parsed.length === 0) continue;
+      const firstUser = parsed.find(
+        (m: unknown) => typeof m === "object" && m !== null && (m as { role?: string }).role === "user"
+      ) as { content?: string } | undefined;
+      const snippet = typeof firstUser?.content === "string" ? firstUser.content.trim().slice(0, 52) : "";
+      const title = snippet ? (snippet.length >= 52 ? `${snippet}…` : snippet) : "Restored chat";
+      addToChatList({
+        chatId,
+        title,
+        starred: false,
+        lastActivity: Date.now(),
+      });
+      known.add(chatId);
+      added++;
+    } catch {
+      /* ignore */
+    }
+  }
+  return added;
 }
 
 export function getChatListSorted(list: ChatListItem[], searchQuery?: string): {

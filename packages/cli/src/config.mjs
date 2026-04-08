@@ -19,7 +19,7 @@ const DEFAULT_CONFIG = {
     port: 4318,
   },
   ai: {
-    model: "gpt-4o-mini",
+    model: "openai/gpt-5.4",
     provider: null,
     gatewayUrl: null,
   },

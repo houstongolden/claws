@@ -188,12 +188,18 @@ export async function runDoctor(args = []) {
   blank();
 
   const aiGateway = !!process.env.AI_GATEWAY_API_KEY;
+  const openrouter = !!process.env.OPENROUTER_API_KEY;
   const openai = !!process.env.OPENAI_API_KEY;
   const anthropic = !!process.env.ANTHROPIC_API_KEY;
-  const hasAI = aiGateway || openai || anthropic;
+  const hasAI = aiGateway || openrouter || openai || anthropic;
 
   if (hasAI) {
-    if (aiGateway) {
+    if (openrouter) {
+      pass(`AI provider: OpenRouter ${fmt.dim("(primary)")}`);
+      if (aiGateway) pass(`AI Gateway key: present ${fmt.dim("(unused while OpenRouter set)")}`);
+      if (openai) pass(`OpenAI key: present ${fmt.dim("(fallback)")}`);
+      if (anthropic) pass(`Anthropic key: present ${fmt.dim("(unused)")}`);
+    } else if (aiGateway) {
       pass(`AI provider: Vercel AI Gateway ${fmt.dim("(primary)")}`);
       if (openai) pass(`OpenAI key: present ${fmt.dim("(fallback)")}`);
       if (anthropic) pass(`Anthropic key: present ${fmt.dim("(fallback)")}`);
@@ -204,7 +210,7 @@ export async function runDoctor(args = []) {
       pass("AI provider: Anthropic");
     }
   } else {
-    no("No AI provider key", "Set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env");
+    no("No AI provider key", "Set OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or AI_GATEWAY_API_KEY in .env");
   }
 
   const aiModel = process.env.AI_MODEL || config?.ai?.model;

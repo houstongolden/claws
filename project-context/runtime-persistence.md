@@ -23,12 +23,14 @@ Claws uses **PGlite** for local-first runtime state. The workspace filesystem re
 
 ## Bootstrap
 
-At gateway startup, `initRuntimeDb({ workspaceRoot })` is called. It:
+At gateway startup, **`initRuntimeDb({ workspaceRoot })`** is attempted first. It:
 
 1. Ensures `.claws/runtime/` exists.
 2. Creates a PGlite instance with that directory as `dataDir`.
 3. Runs the schema SQL (all `CREATE TABLE IF NOT EXISTS`).
 4. Returns the DB instance used for all runtime-db calls.
+
+**In-memory fallback:** If step 2 fails (e.g. WASM `Aborted()` on some Node/OS combinations), the gateway calls **`initRuntimeDbInMemory()`** (no `dataDir`), logs a warning, and continues. **Runtime state does not survive gateway restarts** in that mode. Mitigations: clear `.claws/runtime`, try another Node LTS, upgrade `@electric-sql/pglite` when fixes land.
 
 No remote DB is required for the prototype. The same schema is suitable for a future migration to hosted Postgres (e.g. per-tenant DB URL).
 
@@ -47,5 +49,5 @@ No remote DB is required for the prototype. The same schema is suitable for a fu
 - `prompt/`, `identity/`, `notes/` — Read by tools and identity loader; not in DB.
 - `tasks.md` — Read by Tasks page via `fs.read`; not in DB.
 - `project-context/tasks.jsonl` — Still appended by `tasks.appendEvent` tool; task events are also written to PGlite for querying.
-- `FOLDER.md` — Governance (today roots are hardcoded in workspace-fs; FOLDER.md not yet parsed).
+- `FOLDER.md` — Governance: parsed via `loadFolderContractSync` / `parseFolderMd`; allowed roots and write rules in WorkspaceFS (`packages/workspace/folder-md.ts`).
 - `.claws/memory-store.json` — Still used by the memory tool unless/until memory is migrated to PGlite.

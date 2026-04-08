@@ -356,13 +356,17 @@ function checkEnv() {
 
   const hasAI =
     process.env.AI_GATEWAY_API_KEY ||
+    process.env.OPENROUTER_API_KEY ||
     process.env.OPENAI_API_KEY ||
     process.env.ANTHROPIC_API_KEY;
 
   if (hasAI) {
     checks.push({ ok: true, msg: "AI provider key detected" });
   } else {
-    checks.push({ ok: false, msg: `No AI key found ${fmt.dim("— set OPENAI_API_KEY or ANTHROPIC_API_KEY")}` });
+    checks.push({
+      ok: false,
+      msg: `No AI key found ${fmt.dim("— set OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or AI_GATEWAY_API_KEY")}`,
+    });
   }
 
   if (process.env.TELEGRAM_BOT_TOKEN) {

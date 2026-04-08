@@ -1,0 +1,76 @@
+{
+  "gateway": {
+    "mode": "local",
+    "port": 3000,
+    "bind": "lan",
+    "trustedProxies": ["127.0.0.1", "::1"],
+    "auth": {
+      "mode": "trusted-proxy",
+      "trustedProxy": {
+        "userHeader": "x-auth-username",
+        "allowUsers": ["${HUBIFY_USERNAME}"]
+      }
+    },
+    "controlUi": {
+      "enabled": true,
+      "allowedOrigins": ["https://${HUBIFY_USERNAME}.hubify.com"]
+    }
+  },
+
+  "models": {
+    "mode": "merge"
+  },
+
+  "agents": {
+    "defaults": {
+      "workspace": "/data",
+      "model": {
+        "primary": "openrouter/anthropic/claude-sonnet-4-6",
+        "fallbacks": [
+          "openrouter/anthropic/claude-haiku-4-5",
+          "openrouter/openrouter/auto"
+        ]
+      },
+      "memorySearch": {
+        "provider": "openai",
+        "model": "openrouter/openai/text-embedding-3-small",
+        "sources": ["memory", "sessions"],
+        "query": {
+          "hybrid": { "vectorWeight": 0.7, "textWeight": 0.3 }
+        }
+      },
+      "heartbeat": {
+        "every": "30m",
+        "model": "openrouter/google/gemma-3-27b-it:free"
+      },
+      "sandbox": {
+        "mode": "non-main"
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "sandbox": { "mode": "off" }
+      }
+    ]
+  },
+
+  "cron": {
+    "enabled": true,
+    "sessionRetention": "24h",
+    "runLog": {
+      "maxBytes": "2mb",
+      "keepLines": 2000
+    }
+  },
+
+  "session": {
+    "dmScope": "per-channel-peer",
+    "maintenance": {
+      "pruneAfter": "14d",
+      "maxEntries": 2000,
+      "rotateBytes": "25mb",
+      "maxDiskBytes": "2gb"
+    }
+  }
+}

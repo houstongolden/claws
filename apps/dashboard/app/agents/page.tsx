@@ -84,7 +84,10 @@ export default function AgentsPage() {
         }
       />
       <PageContent>
-        <div className="max-w-3xl space-y-4">
+        <div className="max-w-3xl space-y-5">
+          <div className="rounded-2xl border border-border/80 bg-muted/15 p-5 text-[13px] text-muted-foreground leading-relaxed shadow-[var(--shadow-sm)]">
+            <span className="font-semibold text-foreground">Agents</span> are routed by view and channel. Tools are grouped by environment (workspace, browser, sandbox). Refresh after gateway or config changes.
+          </div>
           {loading ? (
             <div className="flex items-center gap-2 text-muted-foreground text-[13px]">
               <Loader2 size={14} className="animate-spin" />
@@ -105,7 +108,7 @@ export default function AgentsPage() {
 
             <TabsContent value="roster">
               <div className="space-y-3">
-                <div className="rounded-lg border border-border bg-surface-1 p-4">
+                <div className="rounded-2xl border border-border/80 bg-muted/15 p-5 shadow-[var(--shadow-sm)]">
                   <div className="text-[13px] font-medium text-foreground">
                     Roles & scopes
                   </div>
@@ -128,10 +131,10 @@ export default function AgentsPage() {
                   return (
                     <div
                       key={agent.id}
-                      className="rounded-lg border border-border bg-surface-1 overflow-hidden"
+                      className="rounded-2xl border border-border/80 bg-surface-1 overflow-hidden shadow-[var(--shadow-sm)]"
                     >
                       <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-surface-2">
-                        <div className="h-8 w-8 rounded-md bg-background flex items-center justify-center text-muted-foreground shrink-0">
+                        <div className="h-9 w-9 rounded-xl bg-muted/50 ring-1 ring-border/50 flex items-center justify-center text-muted-foreground shrink-0">
                           {isOrchestrator ? (
                             <Shield size={16} strokeWidth={1.4} />
                           ) : (
@@ -185,7 +188,7 @@ export default function AgentsPage() {
             <TabsContent value="tools">
               <div className="space-y-3">
                 {status?.toolsByEnvironment ? (
-                  <div className="rounded-lg border border-border bg-surface-1 p-4">
+                  <div className="rounded-2xl border border-border/80 bg-muted/15 p-5 shadow-[var(--shadow-sm)]">
                     <div className="text-[13px] font-medium text-foreground">
                       Tool environments
                     </div>

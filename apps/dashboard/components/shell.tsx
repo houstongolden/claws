@@ -87,16 +87,23 @@ export function Shell({ children }: { children: ReactNode }) {
         <Nav />
         <main className="flex-1 flex flex-col min-w-0 min-h-0">
           {showTopBar ? (
-            <div className="shrink-0 border-b border-border bg-background px-4 py-1.5">
-              <div className="flex items-center justify-end gap-2">
-                <OpenCliButton />
+            <div className="shrink-0 border-b border-border/60 glass-bar px-4 sm:px-5 py-2.5 sticky top-0 z-30 supports-[padding:max(0px)]:pt-[max(0.5rem,env(safe-area-inset-top))]">
+              <div className="flex items-center justify-end gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/30 px-1 py-0.5">
+                  <OpenCliButton />
+                  <Separator />
+                  <GatewayDot status={gwStatus} />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <SyncIndicator info={sysInfo} />
+                  {sysInfo?.updateAvailable ? <UpdateBadge info={sysInfo} /> : null}
+                  {sysInfo?.dashboard?.isCustom ? <CustomDashBadge /> : null}
+                </div>
                 <Separator />
-                <GatewayDot status={gwStatus} />
-                <SyncIndicator info={sysInfo} />
-                {sysInfo?.updateAvailable ? <UpdateBadge info={sysInfo} /> : null}
-                {sysInfo?.dashboard?.isCustom ? <CustomDashBadge /> : null}
-                <Separator />
-                <Link href="/" className="text-[11px] text-muted-foreground hover:text-foreground transition-colors no-underline whitespace-nowrap">
+                <Link
+                  href="/"
+                  className="inline-flex items-center rounded-full border border-border/70 bg-card px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm hover:bg-muted/50 no-underline whitespace-nowrap motion-safe:transition-colors"
+                >
                   Back to Chat
                 </Link>
               </div>
@@ -141,8 +148,8 @@ function OpenCliButton() {
         onClick={() => setMenuOpen(!menuOpen)}
         disabled={opening}
         className={cn(
-          "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-colors",
-          "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-colors",
+          "text-muted-foreground hover:text-foreground hover:bg-muted/60 border border-transparent hover:border-border/60",
           opening && "opacity-60 pointer-events-none"
         )}
         title="Open Claws CLI / TUI"
@@ -152,22 +159,22 @@ function OpenCliButton() {
         <ChevronDown size={10} className={cn("transition-transform", menuOpen && "rotate-180")} />
       </button>
       {menuOpen ? (
-        <div className="absolute top-full right-0 mt-1 z-50 w-44 rounded-lg border border-border bg-background shadow-lg py-1 text-[12px]">
-          <button type="button" onClick={() => launch("tui")} className="w-full text-left px-3 py-1.5 hover:bg-muted/50 transition-colors flex items-center gap-2">
+        <div className="absolute top-full right-0 mt-1.5 z-50 w-56 rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-xl shadow-[var(--shadow-float)] py-1.5 text-[12px] overflow-hidden ring-1 ring-black/[0.03] dark:ring-white/[0.06]">
+          <button type="button" onClick={() => launch("tui")} className="w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors flex items-center gap-2 focus-visible:bg-muted/60">
             <Terminal size={12} className="text-muted-foreground" />
             <div>
               <div className="font-medium text-foreground">Open TUI</div>
               <div className="text-[10px] text-muted-foreground">Full-screen terminal UI</div>
             </div>
           </button>
-          <button type="button" onClick={() => launch("chat")} className="w-full text-left px-3 py-1.5 hover:bg-muted/50 transition-colors flex items-center gap-2">
+          <button type="button" onClick={() => launch("chat")} className="w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors flex items-center gap-2 focus-visible:bg-muted/60">
             <Terminal size={12} className="text-muted-foreground" />
             <div>
               <div className="font-medium text-foreground">CLI Chat</div>
               <div className="text-[10px] text-muted-foreground">Agent chat in terminal</div>
             </div>
           </button>
-          <button type="button" onClick={() => launch("status")} className="w-full text-left px-3 py-1.5 hover:bg-muted/50 transition-colors flex items-center gap-2">
+          <button type="button" onClick={() => launch("status")} className="w-full text-left px-3 py-2 hover:bg-muted/60 transition-colors flex items-center gap-2 focus-visible:bg-muted/60">
             <Terminal size={12} className="text-muted-foreground" />
             <div>
               <div className="font-medium text-foreground">Status</div>
@@ -182,23 +189,26 @@ function OpenCliButton() {
 
 function GatewayDot({ status }: { status: GatewayState }) {
   return (
-    <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground whitespace-nowrap" title={`Gateway: ${status}`}>
-      <span className="relative flex h-2 w-2">
+    <span
+      className="flex items-center gap-2 px-2 py-1 rounded-full bg-muted/40 text-[11px] text-muted-foreground whitespace-nowrap border border-border/50"
+      title={`Gateway: ${status}`}
+    >
+      <span className="relative flex h-2 w-2 shrink-0">
         {status === "online" ? (
           <>
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400/60 opacity-40" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 ring-2 ring-emerald-500/20" />
           </>
         ) : status === "connecting" ? (
           <>
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-50" />
+            <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400/60 opacity-40" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
           </>
         ) : (
           <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
         )}
       </span>
-      {status === "online" ? "Gateway" : status === "connecting" ? "Connecting" : "Offline"}
+      <span className="font-medium text-foreground/80">{status === "online" ? "Online" : status === "connecting" ? "Connecting" : "Offline"}</span>
     </span>
   );
 }
@@ -249,20 +259,24 @@ function CustomDashBadge() {
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
-    <header className="shrink-0 border-b border-border bg-background px-6 py-4">
-      <div className="flex items-center justify-between gap-4">
+    <header className="shrink-0 border-b border-border/60 glass-bar px-5 sm:px-8 py-5 sm:py-6">
+      <div className="max-w-[90rem] mx-auto flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
         <div className="min-w-0">
-          <h1 className="text-[15px] font-semibold text-foreground tracking-tight">{title}</h1>
-          {description ? <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p> : null}
+          <h1 className="text-[clamp(1.25rem,2.2vw,1.5rem)] font-semibold text-foreground tracking-tight">{title}</h1>
+          {description ? <p className="mt-2 text-[14px] text-muted-foreground leading-relaxed max-w-2xl font-[450]">{description}</p> : null}
         </div>
-        {actions ? <div className="flex items-center gap-2 shrink-0">{actions}</div> : null}
+        {actions ? <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-stretch sm:justify-end">{actions}</div> : null}
       </div>
     </header>
   );
 }
 
 export function PageContent({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("flex-1 overflow-y-auto p-6", className ?? "")}>{children}</div>;
+  return (
+    <div className={cn("flex-1 overflow-y-auto px-5 sm:px-8 py-6 md:py-10 min-h-0", className ?? "")}>
+      <div className="max-w-[90rem] mx-auto w-full min-h-0 flex flex-col flex-1">{children}</div>
+    </div>
+  );
 }
 
 export function PageSection({ children, className }: { children: ReactNode; className?: string }) {
@@ -271,8 +285,8 @@ export function PageSection({ children, className }: { children: ReactNode; clas
 
 export function EmptyState({ icon, title, description, action }: { icon: ReactNode; title: string; description?: string; action?: ReactNode }) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 rounded-xl border border-dashed border-border bg-surface-1/50 gap-4 text-center max-w-md mx-auto">
-      <div className="rounded-full bg-muted/40 p-4 text-muted-foreground">{icon}</div>
+    <div className="flex flex-col items-center justify-center py-20 px-6 rounded-2xl border border-dashed border-border/80 bg-surface-1/60 gap-5 text-center max-w-md mx-auto shadow-[var(--shadow-sm)]">
+      <div className="rounded-2xl bg-muted/50 p-5 text-muted-foreground ring-1 ring-border/50">{icon}</div>
       <div className="space-y-1.5">
         <p className="text-[14px] font-medium text-foreground">{title}</p>
         {description ? <p className="text-[13px] text-muted-foreground leading-relaxed">{description}</p> : null}

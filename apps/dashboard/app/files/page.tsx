@@ -183,7 +183,7 @@ export default function FilesPage() {
           ) : null}
 
           {!loading && !gs?.workspaceRoot ? (
-            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4 text-[13px] text-foreground">
+            <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] p-5 text-[13px] text-foreground leading-relaxed shadow-[var(--shadow-sm)]">
               <p className="font-medium mb-1">Gateway unavailable</p>
               <p className="text-muted-foreground">
                 Workspace path and file tools (browse, read) require the Claws gateway. Start the gateway and refresh.
@@ -192,7 +192,7 @@ export default function FilesPage() {
           ) : null}
 
           {gs?.workspaceRoot ? (
-            <div className="rounded-lg border border-border bg-surface-1 p-4">
+            <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4">
               <div className="flex items-center gap-2 mb-3">
                 <HardDrive size={14} className="text-muted-foreground" />
                 <span className="text-[13px] font-medium">Workspace</span>
@@ -215,7 +215,7 @@ export default function FilesPage() {
           ) : null}
 
           <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <div className="rounded-lg border border-border bg-surface-1 p-4">
+            <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4">
               <div className="flex items-center gap-2 mb-3">
                 <FolderOpen size={14} className="text-muted-foreground" />
                 <span className="text-[13px] font-medium">Workspace browser</span>
@@ -226,7 +226,7 @@ export default function FilesPage() {
                     key={dir.name}
                     type="button"
                     onClick={() => void listDirectory(dir.name)}
-                    className="rounded-md border border-border bg-surface-2 px-2 py-1 text-[11px] hover:bg-background transition-colors"
+                    className="rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1 text-[11px] hover:bg-background motion-safe:transition-colors"
                   >
                     {dir.name}/
                   </button>
@@ -257,7 +257,7 @@ export default function FilesPage() {
                 })}
               </div>
 
-              <div className="mt-3 rounded-md border border-border overflow-hidden">
+              <div className="mt-3 rounded-xl border border-border/80 overflow-hidden shadow-[var(--shadow-sm)]">
                 {listing ? (
                   <div className="flex items-center gap-2 px-3 py-3 text-[12px] text-muted-foreground">
                     <Loader2 size={13} className="animate-spin" />
@@ -295,7 +295,7 @@ export default function FilesPage() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-border bg-surface-1 p-4">
+            <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4">
               <div className="flex items-center gap-2 mb-3">
                 <FileText size={14} className="text-muted-foreground" />
                 <span className="text-[13px] font-medium">Inspector</span>
@@ -328,7 +328,7 @@ export default function FilesPage() {
                       key={item.path}
                       type="button"
                       onClick={() => void readFileAtPath(item.path)}
-                      className="rounded-md border border-border bg-surface-2 px-2.5 py-1.5 text-left hover:bg-surface-2/80 transition-colors"
+                      className="rounded-xl border border-border/80 bg-muted/30 px-3 py-2 text-left hover:bg-muted/50 motion-safe:transition-colors"
                     >
                       <div className="text-[11px] text-foreground">{item.label}</div>
                       <div className="text-[10px] text-muted-foreground font-[family-name:var(--font-geist-mono)]">
@@ -340,16 +340,16 @@ export default function FilesPage() {
               </div>
 
               {fileError ? (
-                <div className="mt-3 text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">
+                <div className="mt-3 text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">
                   {fileError}
                 </div>
               ) : null}
               {fileContent !== null ? (
-                <pre className="mt-3 rounded-md border border-border bg-code-bg p-3 text-[12px] text-muted-foreground overflow-x-auto font-[family-name:var(--font-geist-mono)] leading-relaxed max-h-[500px] overflow-y-auto whitespace-pre-wrap">
+                <pre className="mt-3 rounded-xl border border-border/80 bg-code-bg p-4 text-[12px] text-muted-foreground overflow-x-auto font-[family-name:var(--font-geist-mono)] leading-relaxed max-h-[500px] overflow-y-auto whitespace-pre-wrap shadow-[var(--shadow-sm)]">
                   {fileContent || "(empty file)"}
                 </pre>
               ) : (
-                <div className="mt-3 rounded-md border border-dashed border-border px-3 py-6 text-[12px] text-muted-foreground">
+                <div className="mt-3 rounded-2xl border border-dashed border-border/80 bg-muted/10 px-4 py-8 text-[12px] text-muted-foreground text-center leading-relaxed">
                   Select a file from the workspace browser or enter a path to inspect it here.
                 </div>
               )}
@@ -360,7 +360,7 @@ export default function FilesPage() {
             <div className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground mb-2">
               Workspace Structure
             </div>
-            <div className="rounded-lg border border-border bg-surface-1 divide-y divide-border overflow-hidden">
+            <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
               {CANONICAL_DIRS.map((dir) => (
                 <button
                   key={dir.name}
@@ -390,7 +390,7 @@ export default function FilesPage() {
             </div>
           </div>
 
-          <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground">
+          <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 text-[13px] text-muted-foreground">
             <div className="flex items-center gap-2 mb-1.5 text-foreground font-medium">
               <PenLine size={14} />
               Creating and editing files

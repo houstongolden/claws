@@ -196,7 +196,7 @@ export default function WorkflowsPage() {
             </TabsList>
 
             <TabsContent value="create">
-              <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-4">
+              <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-4">
                 <div className="text-[13px] font-medium">New workflow</div>
                 <form onSubmit={handleCreateSubmit} className="space-y-4">
                   <div>
@@ -282,7 +282,7 @@ export default function WorkflowsPage() {
                     </div>
                   </div>
                   {createError ? (
-                    <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                    <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">
                       {createError}
                     </div>
                   ) : null}
@@ -296,7 +296,7 @@ export default function WorkflowsPage() {
 
             <TabsContent value="runs">
               <div className="space-y-4">
-                <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 text-[13px] text-muted-foreground">
                   Workflows are promoted runs, not every chat turn. Run state is backed by{" "}
                   <InlineCode>.claws/workflow-store.json</InlineCode> (local) or Vercel Workflow when configured.
                   They matter when work needs retries, pausing, approvals, or background execution beyond a single response.
@@ -309,7 +309,7 @@ export default function WorkflowsPage() {
                 ) : null}
 
                 {error ? (
-                  <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                  <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">
                     {error}
                   </div>
                 ) : null}
@@ -325,7 +325,7 @@ export default function WorkflowsPage() {
                 {workflows.map((wf) => (
                   <div
                     key={wf.id}
-                    className="rounded-lg border border-border bg-surface-1 overflow-hidden"
+                    className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] overflow-hidden"
                   >
                     <button
                       type="button"
@@ -414,7 +414,7 @@ export default function WorkflowsPage() {
 
             <TabsContent value="architecture">
               <div className="space-y-4">
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="text-[13px] font-medium">Durable Execution Model</div>
                   <div className="text-[13px] text-muted-foreground space-y-2">
                     <p>
@@ -437,7 +437,7 @@ export default function WorkflowsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="text-[13px] font-medium">Execution Substrates</div>
                   <div className="text-[13px] text-muted-foreground mb-1">
                     Each step in a workflow runs on one of these substrates, selected by the
@@ -467,7 +467,7 @@ export default function WorkflowsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="text-[13px] font-medium">Visibility Modes</div>
                   <div className="text-[13px] text-muted-foreground mb-1">
                     Browser and computer steps support configurable execution visibility.
@@ -492,7 +492,7 @@ export default function WorkflowsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="text-[13px] font-medium">Storage & Adapters</div>
                   <div className="text-[13px] text-muted-foreground space-y-1.5">
                     <div className="flex items-center gap-2 text-[12px]">
@@ -510,7 +510,7 @@ export default function WorkflowsPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="text-[13px] font-medium">API Routes</div>
                   <div className="text-[12px] text-muted-foreground font-[family-name:var(--font-geist-mono)] space-y-1">
                     <div>GET  /api/workflows</div>

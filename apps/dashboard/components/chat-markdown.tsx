@@ -30,9 +30,16 @@ export const ChatMarkdown = memo(function ChatMarkdown({ content }: { content: s
           return <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>;
         },
         a({ href, children }) {
+          const external = href?.startsWith("http");
           return (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
-              {children}<ExternalLink size={11} className="shrink-0" />
+            <a
+              href={href}
+              target={external ? "_blank" : undefined}
+              rel={external ? "noopener noreferrer" : undefined}
+              className="text-foreground underline decoration-muted-foreground/40 underline-offset-2 hover:decoration-foreground/60 transition-colors font-medium"
+            >
+              {children}
+              {external ? <ExternalLink size={10} className="inline ml-0.5 opacity-40 align-middle" aria-hidden /> : null}
             </a>
           );
         },
@@ -68,19 +75,19 @@ export const ChatMarkdown = memo(function ChatMarkdown({ content }: { content: s
         },
         table({ children }) {
           return (
-            <div className="my-2 overflow-x-auto rounded-lg border border-border">
-              <table className="w-full text-[13px]">{children}</table>
+            <div className="my-3 overflow-x-auto rounded-xl border border-border/80 bg-card shadow-[var(--shadow-sm)]">
+              <table className="w-full text-[12px] leading-tight border-collapse">{children}</table>
             </div>
           );
         },
         thead({ children }) {
-          return <thead className="bg-muted/40 border-b border-border">{children}</thead>;
+          return <thead className="bg-muted/50 border-b border-border">{children}</thead>;
         },
         th({ children }) {
-          return <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">{children}</th>;
+          return <th className="px-2.5 py-2 text-left font-semibold text-muted-foreground text-[11px] uppercase tracking-wide">{children}</th>;
         },
         td({ children }) {
-          return <td className="px-3 py-1.5 border-t border-border">{children}</td>;
+          return <td className="px-2.5 py-1.5 border-t border-border/80 align-top">{children}</td>;
         },
         code({ className, children, ...rest }) {
           const match = /language-(\w+)/.exec(className || "");

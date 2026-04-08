@@ -1,10 +1,21 @@
 import http from "node:http";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
 import type { StaticRouter } from "@claws/core/router";
 import type { WorkflowRun, WorkflowDefinition, TenantConfig } from "@claws/shared/types";
 import { resolveTenant } from "./tenantRouter";
 import { parseDestination } from "./channelMapping";
+
+function getEnvWorkspaceRoot(): string {
+  const root = process.env.CLAWS_WORKSPACE_ROOT;
+  if (root) return root;
+  const cwd = process.cwd();
+  for (const base of [cwd, path.resolve(cwd, "..", "..")]) {
+    if (existsSync(path.join(base, ".env.local")) || existsSync(path.join(base, ".env"))) return base;
+  }
+  return cwd;
+}
 
 export type GatewayRuntime = {
   router?: StaticRouter;
@@ -18,6 +29,8 @@ export type GatewayRuntime = {
     participantAgentIds?: string[];
     mentionedAgentIds?: string[];
     leadAgentId?: string;
+    mode?: "agent" | "plan" | "chat";
+    maxSteps?: number;
   }) => Promise<unknown>;
   handleChatStream?: (
     input: {
@@ -25,6 +38,9 @@ export type GatewayRuntime = {
       chatId?: string;
       threadId?: string;
       history?: Array<{ role: "user" | "assistant"; content: string }>;
+      /** agent | plan (read-only tools) | chat (no tools) */
+      mode?: "agent" | "plan" | "chat";
+      maxSteps?: number;
     },
     res: http.ServerResponse
   ) => Promise<void>;
@@ -212,15 +228,16 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
         const ENV_KEYS = [
           { key: "AI_GATEWAY_API_KEY", group: "AI", sensitive: true, desc: "Primary API key for Vercel AI Gateway routing" },
           { key: "OPENAI_API_KEY", group: "AI", sensitive: true, desc: "Fallback key for direct OpenAI routing" },
-          { key: "ANTHROPIC_API_KEY", group: "AI", sensitive: true, desc: "Fallback key for direct Anthropic routing" },
-          { key: "AI_MODEL", group: "AI", sensitive: false, desc: "Model name (default: gpt-4o-mini)" },
-          { key: "AI_GATEWAY_URL", group: "AI", sensitive: false, desc: "Custom AI Gateway URL (optional)" },
-          { key: "OPENROUTER_API_KEY", group: "AI", sensitive: true, desc: "OpenRouter API key for multi-model routing" },
+          { key: "OPENROUTER_API_KEY", group: "AI", sensitive: true, desc: "OpenRouter (before OpenAI/Anthropic direct)" },
+          { key: "ANTHROPIC_API_KEY", group: "AI", sensitive: true, desc: "Direct Anthropic (last in routing order)" },
+          { key: "AI_MODEL", group: "AI", sensitive: false, desc: "Model id (default: openai/gpt-5.4 via OpenRouter)" },
+          { key: "AI_GATEWAY_URL", group: "AI", sensitive: false, desc: "Optional; default https://ai-gateway.vercel.sh/v3/ai — do not use legacy /v1" },
+          { key: "TAVILY_API_KEY", group: "AI", sensitive: true, desc: "Tavily API — enables research.webSearch (Perplexity-style)" },
           { key: "V0_API_KEY", group: "AI", sensitive: true, desc: "V0 Platform API key" },
           { key: "CLAWS_PORT", group: "Runtime", sensitive: false, desc: "Gateway port (default: 4317)" },
           { key: "DASHBOARD_PORT", group: "Runtime", sensitive: false, desc: "Dashboard port (default: 4318)" },
           { key: "CLAWS_DEFAULT_VIEW", group: "Runtime", sensitive: false, desc: "Default primary view (default: founder)" },
-          { key: "CLAWS_BROWSER_PROVIDER", group: "Execution", sensitive: false, desc: "Browser provider (agent-browser | playwright | native)" },
+          { key: "CLAWS_BROWSER_PROVIDER", group: "Execution", sensitive: false, desc: "Browser provider — set playwright + run pnpm playwright:install for reliable extract/screenshot" },
           { key: "CLAWS_BROWSER_DEFAULT_MODE", group: "Execution", sensitive: false, desc: "Default visibility mode" },
           { key: "CLAWS_SANDBOX_ENABLED", group: "Execution", sensitive: false, desc: "Enable sandbox execution (true | false)" },
           { key: "CLAWS_SANDBOX_PROVIDER", group: "Execution", sensitive: false, desc: "Sandbox provider (vercel | local | none)" },
@@ -246,7 +263,7 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
       }
 
       if (pathname === "/api/env/raw" && req.method === "GET") {
-        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const wsRoot = getEnvWorkspaceRoot();
         const envPath = path.join(wsRoot, ".env.local");
         try {
           const fs = await import("node:fs/promises");
@@ -261,7 +278,7 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
         const body = await readBody(req);
         const { content } = body as { content?: string };
         if (typeof content !== "string") return json(res, 400, { ok: false, error: "content required" });
-        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const wsRoot = getEnvWorkspaceRoot();
         const envPath = path.join(wsRoot, ".env.local");
         const backupPath = path.join(wsRoot, ".env.local.bak");
         try {
@@ -283,7 +300,7 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
       if (pathname === "/api/cli/open" && req.method === "POST") {
         const body = (await readBody(req)) as { command?: string } | null;
         const cmd = body?.command ?? "tui";
-        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const wsRoot = getEnvWorkspaceRoot();
         const cliPath = path.join(wsRoot, "packages/cli/bin/claws.mjs");
         try {
           const { exec } = await import("node:child_process");
@@ -306,7 +323,7 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
       }
 
       if (pathname === "/api/system/info" && req.method === "GET") {
-        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const wsRoot = getEnvWorkspaceRoot();
         const fs = await import("node:fs/promises");
 
         let currentVersion = "0.1.0";
@@ -367,7 +384,7 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
 
       if (pathname === "/api/system/cloud-sync" && req.method === "POST") {
         const body = (await readBody(req)) as { enabled?: boolean } | null;
-        const wsRoot = process.env.CLAWS_WORKSPACE_ROOT ?? path.resolve(process.cwd(), "..", "..");
+        const wsRoot = getEnvWorkspaceRoot();
         const fs = await import("node:fs/promises");
         const marker = path.join(wsRoot, ".claws/sync-disabled");
         try {
@@ -419,16 +436,23 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
         } | null;
 
         if (!requestId) return json(res, 400, { ok: false, error: "Missing request id" });
-        if (!body?.decision) return json(res, 400, { ok: false, error: "Missing approval decision" });
+        if (!body || typeof body !== "object") {
+          return json(res, 400, { ok: false, error: "Invalid JSON body" });
+        }
+        if (!body.decision) return json(res, 400, { ok: false, error: "Missing approval decision" });
 
-        const result = await runtime?.resolveApproval?.({
-          requestId,
-          decision: body.decision,
-          note: body.note,
-          grant: body.grant as any
-        });
-
-        return json(res, 200, { ok: true, result: result ?? null });
+        try {
+          const result = await runtime?.resolveApproval?.({
+            requestId,
+            decision: body.decision,
+            note: typeof body.note === "string" ? body.note : undefined,
+            grant: body.grant as Parameters<NonNullable<GatewayRuntime["resolveApproval"]>>[0]["grant"],
+          });
+          return json(res, 200, { ok: true, result: result ?? null });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Resolve failed";
+          return json(res, 500, { ok: false, error: msg });
+        }
       }
 
       if (pathname === "/api/view-state" && req.method === "GET") {
@@ -586,6 +610,8 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
           chatId?: string;
           threadId?: string;
           history?: Array<{ role: "user" | "assistant"; content: string }>;
+          mode?: "agent" | "plan" | "chat";
+          maxSteps?: number;
         } | null;
         const message = body?.message?.trim();
         if (!message) return json(res, 400, { ok: false, error: "Missing message" });
@@ -596,6 +622,8 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
             chatId: body?.chatId,
             threadId: body?.threadId,
             history: body?.history,
+            mode: body?.mode,
+            maxSteps: body?.maxSteps,
           }, res);
           return;
         }
@@ -608,6 +636,8 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
           chatId?: string;
           threadId?: string;
           history?: Array<{ role: "user" | "assistant"; content: string }>;
+          mode?: "agent" | "plan" | "chat";
+          maxSteps?: number;
         } | null;
         const message = body?.message?.trim();
         if (!message) return json(res, 400, { ok: false, error: "Missing message" });
@@ -617,6 +647,8 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
           chatId: body?.chatId,
           threadId: body?.threadId,
           history: body?.history,
+          mode: body?.mode,
+          maxSteps: body?.maxSteps,
         });
         return json(res, 200, {
           ok: true,

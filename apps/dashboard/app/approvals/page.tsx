@@ -173,7 +173,7 @@ export default function ApprovalsPage() {
       />
       <PageContent>
         <div className="max-w-2xl space-y-4">
-          <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground space-y-2">
+          <div className="rounded-2xl border border-border/80 bg-muted/15 p-5 text-[13px] text-muted-foreground space-y-2 leading-relaxed shadow-[var(--shadow-sm)]">
             <div className="font-medium text-foreground">What happens when you approve</div>
             <p>You choose a grant: <strong>Approve once</strong> (this call only), <strong>Allow session</strong> (this agent for this session), <strong>Allow 24h</strong>, or <strong>Always allow</strong> this tool. The tool run then proceeds with the same arguments; future runs may require approval again depending on the grant.</p>
             <div className="font-medium text-foreground pt-1">What happens when you deny</div>
@@ -187,7 +187,7 @@ export default function ApprovalsPage() {
           ) : null}
 
           {error ? (
-            <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+            <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">
               {error}
             </div>
           ) : null}
@@ -203,10 +203,10 @@ export default function ApprovalsPage() {
           {approvals.map((approval) => (
             <div
               key={approval.id}
-              className="rounded-lg border border-border bg-surface-1 overflow-hidden"
+              className="rounded-2xl border border-border/80 bg-surface-1 overflow-hidden shadow-[var(--shadow-sm)] divide-y divide-border/80"
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-2">
+                  <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/80 bg-muted/25">
                 <div className="flex items-center gap-2 min-w-0">
                   <ShieldAlert size={14} className="text-warning shrink-0" />
                   <span className="text-[13px] font-semibold truncate">
@@ -240,11 +240,11 @@ export default function ApprovalsPage() {
 
                 {/* Grant actions with explanations */}
                 <div className="space-y-1.5">
-                  <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                     Grant options
                   </div>
 
-                  <div className="grid gap-1.5 sm:grid-cols-2">
+                  <div className="grid gap-2 sm:grid-cols-2">
                     {(["once", "session", "24h", "tool"] as const).map(
                       (mode) => {
                         const info = GRANT_DESCRIPTIONS[mode];
@@ -256,7 +256,7 @@ export default function ApprovalsPage() {
                               handleResolve(approval, "approved", mode)
                             }
                             disabled={resolvingId === approval.id}
-                            className="flex items-start gap-2 rounded-md border border-border bg-background px-3 py-2 text-left hover:bg-surface-2 transition-colors disabled:opacity-50"
+                            className="flex items-start gap-2.5 rounded-xl border border-border/80 bg-surface-1 px-3.5 py-3 text-left hover:bg-muted/30 hover:border-border motion-safe:transition-all disabled:opacity-50 shadow-[var(--shadow-sm)]"
                           >
                             <div className="text-success mt-0.5 shrink-0">
                               {info.icon}
@@ -279,7 +279,7 @@ export default function ApprovalsPage() {
                     type="button"
                     onClick={() => handleResolve(approval, "denied")}
                     disabled={resolvingId === approval.id}
-                    className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-left hover:bg-destructive/10 transition-colors disabled:opacity-50 w-full"
+                    className="flex items-center gap-3 rounded-xl border border-destructive/25 bg-destructive/[0.06] px-4 py-3 text-left hover:bg-destructive/10 motion-safe:transition-colors disabled:opacity-50 w-full mt-1"
                   >
                     <ShieldX size={12} className="text-destructive shrink-0" />
                     <div>

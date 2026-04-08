@@ -1,11 +1,45 @@
-# Claws
+# Claws 🦞
 
-**Open-source, Vercel-powered, local-first agent OS** — an OpenClaw-style personal agent you can self-host. Chat-first, multi-agent capable, with CLI/TUI parity and a markdown-native workspace.
+> **The front-end framework for OpenClaw UIs.**
+> Plus an experimental agent OS for Vercelians 👽🦞
 
-Built with Next.js, Vercel AI SDK v6, Geist design system, Tailwind CSS, shadcn/ui, and TypeScript.
+Claws is two things in one turborepo:
 
-**OpenClaw clarification:**
-Claws is not an OpenClaw fork. It is a clean-room implementation inspired by OpenClaw concepts and rebuilt from scratch for Vercel-native workflows.
+1. **`@claws/sdk` + Claws Studio + Template Marketplace** — the React framework, visual template builder, and AIOS template marketplace for building custom dashboards, mission-control UIs, and workflow managers on top of OpenClaw.
+2. **An experimental local-first agent OS** — a Vercel-native multi-agent runtime (gateway + dashboard + CLI + worker) that serves as both a learning artifact and a second backend target for the Claws framework.
+
+Built with Next.js 15, Vercel AI SDK v6, Geist, Tailwind CSS v4, TypeScript, Turborepo, and PGlite.
+
+## Pillar 1 — The Framework
+
+The main product. Everything you need to ship a production dashboard on top of OpenClaw.
+
+- **`@claws/sdk`** — 17 React hooks + WebSocket gateway client for OpenClaw Gateway v3 (skills, tools, sessions, presence, config, channels, cron, ACP sessions). Core bundle ~2 KB, React bundle ~21 KB, typed end-to-end.
+- **Claws Studio** — visual template builder. Design your AI OS dashboard, configure the agent personality, drop in skills, deploy to a persistent workspace.
+- **AIOS Templates** — package `SOUL.md`, `AGENTS.md`, skills, dashboard layout, themes, and cron jobs into shareable templates. 5 built-in templates (FounderOS, DevOS, CompanyOS, MyOS, ResearchOS).
+- **SmartSync versioning** — three-way merge algorithm keeps deployed workspaces in sync with template upgrades without losing customization.
+- **Fly.io deployment** — persistent OpenClaw VPS on a custom subdomain, nginx reverse proxy, JWT auth, stats server, ttyd web terminal.
+- **Workspace sync** — bi-directional sync between CLI and cloud for SOUL, memory, and skills.
+
+Install the SDK:
+
+```bash
+npm install @claws/sdk
+```
+
+```tsx
+import { GatewayProvider, useGateway, useSkills } from "@claws/sdk/react";
+
+function App() {
+  return (
+    <GatewayProvider url="ws://localhost:3000">
+      <Dashboard />
+    </GatewayProvider>
+  );
+}
+```
+
+## Pillar 2 — Experimental Agent OS for Vercelians 👽🦞
 
 ## What is running today
 
@@ -28,10 +62,12 @@ Claws is not an OpenClaw fork. It is a clean-room implementation inspired by Ope
 - AI SDK v6 (`ai`, `@ai-sdk/openai`, `@ai-sdk/provider`) integrated for chat and tool use
 - `generateText` for non-streaming, `streamText` for SSE streaming responses
 - Tool calling with JSON Schema definitions for all registered tools
-- Gateway-first model routing with direct-provider fallbacks:
-  - `AI_GATEWAY_API_KEY` -> Vercel AI Gateway (highest priority)
-  - `OPENAI_API_KEY` -> direct OpenAI fallback
-  - `ANTHROPIC_API_KEY` -> direct Anthropic fallback
+- Gateway-first model routing with **OpenAI fallback** when gateway/OpenRouter fails:
+  - `AI_GATEWAY_API_KEY` → Vercel AI Gateway (default base `https://ai-gateway.vercel.sh/v3/ai` — **not** legacy `/v1`)
+  - Set **`OPENAI_API_KEY` together with gateway** so chat can recover from gateway errors automatically
+  - `OPENROUTER_API_KEY` → OpenRouter; same OpenAI fallback if both keys set
+  - `OPENAI_API_KEY` alone → direct OpenAI
+  - `ANTHROPIC_API_KEY` → direct Anthropic when no keys above
 - Workflow engine aligned with Vercel Workflow / Workflow DevKit patterns
 
 ### Local-first + future hosted
@@ -59,8 +95,12 @@ Claws is not an OpenClaw fork. It is a clean-room implementation inspired by Ope
 ## Local defaults
 
 - Gateway port: `4317`
-- Dashboard port: `4318`
+- Dashboard port: `4318` (if that port is busy, dev automatically uses `4319`, `4320`, … — **read the terminal** for the real URL)
 - Dashboard -> gateway URL: `http://localhost:4317`
+
+**Blank white screen?** Often the dashboard never started (`EADDRINUSE` on 4318) while something else still listens on that port — you’re not hitting Next. Free the port (`lsof -i :4318` then kill) or use the URL printed when the dashboard picks another port.
+
+**Chat persistence:** Threads are saved in the browser (sidebar list + per-chat history). Reload or come back later and pick the same chat to resume. See [`docs/CHAT-PERSISTENCE.md`](docs/CHAT-PERSISTENCE.md).
 
 ## Install
 
@@ -86,9 +126,11 @@ claws onboard
 git clone <repo>
 cd claws
 cp .env.example .env.local
-pnpm install
-pnpm dev
+pnpm install   # postinstall: Playwright Chromium for browser tools
+pnpm dev       # runs bootstrap (install + browsers if needed) then gateway + dashboard + worker
 ```
+
+See **[BOOTSTRAP.md](./BOOTSTRAP.md)** for skip flags (CI), stamp file, and what runs on startup.
 
 ### Claws home directory
 
@@ -166,19 +208,23 @@ Recommended to set:
 - `NEXT_PUBLIC_CLAWS_GATEWAY_URL=http://localhost:4317`
 
 AI SDK integration:
-- `AI_GATEWAY_API_KEY` — primary key (routes all models through Vercel AI Gateway)
-- `AI_GATEWAY_URL` — optional custom base URL for Vercel AI Gateway
-- `OPENAI_API_KEY` — direct OpenAI fallback when gateway key is not set
-- `ANTHROPIC_API_KEY` — direct Anthropic fallback when gateway/openai keys are not set
-- `AI_MODEL=gpt-4o-mini` — model selection (default: gpt-4o-mini)
+- `AI_GATEWAY_API_KEY` — Vercel AI Gateway (checked first if set)
+- `AI_GATEWAY_URL` — optional; default **v3** base `https://ai-gateway.vercel.sh/v3/ai` (legacy `/v1` is auto-corrected). **Set `OPENAI_API_KEY` too** for automatic fallback if gateway fails.
+- `OPENROUTER_API_KEY` — **OpenRouter** (OpenAI-compatible; use to avoid direct Anthropic credits)
+- `OPENAI_API_KEY` — direct OpenAI
+- `ANTHROPIC_API_KEY` — direct Anthropic (last resort)
+- `OPENROUTER_API_KEY` + `AI_MODEL=openai/gpt-5.4` — recommended (OpenRouter is primary when set). Bare `gpt-*` still maps to `openai/gpt-*` on OpenRouter.
 
 Routing order at runtime:
 1. `AI_GATEWAY_API_KEY`
-2. `OPENAI_API_KEY`
-3. `ANTHROPIC_API_KEY`
+2. `OPENROUTER_API_KEY`
+3. `OPENAI_API_KEY`
+4. `ANTHROPIC_API_KEY`
 
 If none are configured, startup fails with:
-`No AI provider configured. Set one of: AI_GATEWAY_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY`.
+`No AI provider configured. Set one of: AI_GATEWAY_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY`.
+
+**Anthropic credit errors:** The gateway used to prefer `ANTHROPIC_API_KEY` first; it now prefers OpenRouter/OpenAI/Gateway before Anthropic. Set `OPENROUTER_API_KEY` and leave `ANTHROPIC_API_KEY` empty (or unset) so requests never hit Anthropic direct.
 
 Runtime toggles:
 - `CLAWS_DEFAULT_VIEW=founder` (or `agency|developer|creator|personal|fitness`)

@@ -1,0 +1,39 @@
+{
+  auto_https off
+  admin off
+}
+
+# Caddy listens on HTTP port 8080 (Fly handles HTTPS at edge)
+# Fly terminates TLS and forwards plain HTTP to us with X-Forwarded-Proto: https
+:8080 {
+  log {
+    output stderr
+    format console
+  }
+
+  # Match requests to *.hubify.com (wildcard subdomains)
+  @wildcard {
+    header Host *.hubify.com
+  }
+
+  # Handle wildcard subdomain requests: extract subdomain and proxy to workspace machine
+  handle @wildcard {
+    # Caddy labels are indexed from right: aios4.hubify.com → 0=com, 1=hubify, 2=aios4
+    # Use Fly public proxy (.fly.dev) since workspace nginx binds IPv4-only
+    reverse_proxy hubify-ws-{http.request.host.labels.2}.fly.dev:80 {
+      header_up Host {http.request.host}
+      header_up X-Forwarded-Proto https
+    }
+  }
+
+  # Catch-all for non-wildcard requests to hubify.com
+  handle {
+    respond "Not found" 404
+  }
+
+  # Handle upstream errors: proxy connection failures → friendly 404
+  handle_errors {
+    header Content-Type text/plain
+    respond "Workspace not found. Sign up at hubify.com to create your workspace." 404
+  }
+}

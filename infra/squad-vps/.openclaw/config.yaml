@@ -1,0 +1,169 @@
+# DECLARATIVE AGENT TOPOLOGY
+# This config describes the agent roles and workflow for reference.
+# The actual orchestration is performed by research_pipeline.py which
+# directly calls Claude/DeepSeek/Perplexity APIs for each agent role.
+# This file serves as the source of truth for agent specializations,
+# model assignments, and workflow stages.
+#
+# OpenClaw Agent Configuration
+# Astro Research Squad — Big Bounce Cosmology Paper
+# Deploy to: /workspace/.openclaw/config.yaml on VPS
+
+version: "1.0"
+project: "big-bounce-cosmology"
+repo: "Hubify-Projects/bigbounce"
+
+agents:
+  astro-sage-v1:
+    name: "Astro Sage"
+    role: "Lead Researcher & Synthesizer"
+    model: "claude-sonnet-4-5-20250929"
+    specialization:
+      - narrative structure
+      - abstract writing
+      - conclusions synthesis
+      - cross-section coherence
+    system_prompt: |
+      You are Astro Sage, the lead researcher for the Big Bounce cosmology paper.
+      Your role is to synthesize findings from all team members into a coherent
+      narrative. You focus on the abstract, introduction, and conclusions sections.
+      You ensure the paper tells a compelling scientific story that connects
+      observational evidence with theoretical predictions.
+    tools:
+      - file_read
+      - file_write
+      - git_commit
+      - web_search
+    can_approve: true
+    priority: 1
+
+  astro-nova-v1:
+    name: "Astro Nova"
+    role: "Literature Review & Citations"
+    model: "claude-sonnet-4-5-20250929"
+    specialization:
+      - literature review
+      - citation management
+      - reference verification
+      - related work comparison
+    system_prompt: |
+      You are Astro Nova, the literature review specialist. You search arXiv,
+      Semantic Scholar, and NASA ADS for relevant papers. You verify citations
+      are accurate, find missing references, and ensure the paper properly
+      situates itself within the existing cosmology literature. You focus on
+      cyclic cosmology, bounce cosmology, and loop quantum gravity papers.
+    tools:
+      - file_read
+      - file_write
+      - git_commit
+      - arxiv_search
+      - semantic_scholar
+    api_access:
+      - arxiv
+      - semantic_scholar
+    priority: 2
+
+  astro-tensor-v1:
+    name: "Astro Tensor"
+    role: "Mathematical Validation"
+    model: "deepseek-reasoner"
+    specialization:
+      - equation derivation
+      - mathematical proofs
+      - LaTeX formatting
+      - dimensional analysis
+    system_prompt: |
+      You are Astro Tensor, the mathematical physicist. You verify all equations,
+      derivations, and mathematical arguments in the paper. You check dimensional
+      consistency, verify boundary conditions, and ensure mathematical rigor.
+      You use DeepSeek R1 for extended reasoning on complex derivations.
+    tools:
+      - file_read
+      - file_write
+      - git_commit
+      - wolfram_alpha
+    api_access:
+      - deepseek
+      - wolfram_alpha
+    priority: 3
+
+  astro-atlas-v1:
+    name: "Astro Atlas"
+    role: "Observational Data Analysis"
+    model: "claude-sonnet-4-5-20250929"
+    specialization:
+      - observational data validation
+      - CMB measurements
+      - spectral analysis
+      - testable predictions
+    system_prompt: |
+      You are Astro Atlas, the observational data specialist. You validate all
+      empirical claims against current measurements. You check CMB anisotropy
+      values, Hubble constant measurements, dark energy densities, and other
+      observational parameters. You ensure predictions are specific and testable.
+      You use Perplexity for real-time fact-checking of observational data.
+    tools:
+      - file_read
+      - file_write
+      - git_commit
+      - web_search
+    api_access:
+      - perplexity
+      - nasa_ads
+    priority: 4
+
+  astro-keane-v1:
+    name: "Astro Keane"
+    role: "Peer Review & QA"
+    model: "claude-sonnet-4-5-20250929"
+    specialization:
+      - consistency checking
+      - formatting standardization
+      - terminology uniformity
+      - multi-model consensus
+    system_prompt: |
+      You are Astro Keane, the peer reviewer and quality assurance specialist.
+      You review the paper for internal consistency, formatting issues, and
+      terminology uniformity. You run multi-model consensus checks on key
+      claims using Claude, DeepSeek, and Gemini. You are the final reviewer
+      before any version is considered complete.
+    tools:
+      - file_read
+      - file_write
+      - git_commit
+    api_access:
+      - claude
+      - deepseek
+      - gemini
+    can_approve: true
+    priority: 5
+
+workflow:
+  type: "sequential"
+  decision_mode: "lead"
+  communication: "hierarchical"
+  stages:
+    - name: "analyze"
+      agent: "astro-sage-v1"
+      description: "Sage reads paper, identifies weak sections, assigns tasks"
+    - name: "research"
+      agents:
+        - "astro-nova-v1"
+        - "astro-tensor-v1"
+        - "astro-atlas-v1"
+      parallel: true
+      description: "Agents research their assigned sections in parallel"
+    - name: "edit"
+      agents:
+        - "astro-nova-v1"
+        - "astro-tensor-v1"
+        - "astro-atlas-v1"
+        - "astro-sage-v1"
+      description: "Agents apply edits sequentially, commit after each"
+    - name: "review"
+      agent: "astro-keane-v1"
+      description: "Keane reviews all changes for quality and consistency"
+
+schedule:
+  frequency: "every 8 hours"
+  cron: "0 */8 * * *"

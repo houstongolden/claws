@@ -14,7 +14,12 @@ export function createFsTools(workspace: WorkspaceFS) {
       if (!relativePath) throw new Error("Missing path");
       const finalizeIntent = args.finalizeIntent === true;
       await workspace.write(relativePath, content, { finalizeIntent });
-      return { ok: true, path: relativePath };
+      return {
+        ok: true,
+        path: relativePath,
+        /** For dashboard live HTML preview (capped). */
+        content: relativePath.toLowerCase().endsWith(".html") ? content.slice(0, 500_000) : undefined,
+      };
     },
     "fs.append": async (args: Record<string, unknown>) => {
       const relativePath = String(args.path ?? "");

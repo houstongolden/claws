@@ -9,13 +9,12 @@ Ordered by dependency. **Strategy:** Magic moments first; no broad dashboard pol
 ## 1. ~~Persist session transcripts (streaming path)~~ — DONE this pass
 
 - **Done:** Streaming chat now persists assistant reply after stream complete via `onComplete` in `writeStreamToResponse`. Session history survives reload without client re-sending history.
-- **Remaining:** Session list and "resume session" in UI (optional for v0).
+- **Remaining:** None for transcript persistence.
 
-## 2. Persist session transcripts — session list / resume (P0)
+## 2. ~~Persist session transcripts — session list / resume (P0)~~ — DONE
 
-- Add session list and "resume session" in nav or session workbench.
-- **Unblocks:** Session-centric UX, "what did we decide?" magic moment.
-- **Files:** apps/dashboard (nav or session picker), gateway already has list conversations/sessions.
+- **Done:** Nav **Sessions** (starred + recent), select chat resumes; `chat-list-context`, `ensureChatInList`; gateway list conversations/sessions unchanged.
+- **Files:** apps/dashboard/components/nav.tsx, chat-list-context, session-workbench.
 
 ## 3. ~~Proactivity cron/interval scheduler (P0 for moment 4)~~ — DONE this pass
 
@@ -31,11 +30,10 @@ Ordered by dependency. **Strategy:** Magic moments first; no broad dashboard pol
 - **Depends on:** None.
 - **Files:** packages/workspace/workspace-fs.ts, schema for FOLDER.md format.
 
-## 5. Stream tool-call events — dashboard consumption (P1)
+## 5. ~~Stream tool-call events — dashboard consumption (P1)~~ — DONE
 
-- **Gateway:** Already emits `tool_call` and `tool_result` incrementally in `writeStreamToResponse`. No change needed.
-- **Remaining:** Ensure dashboard chat consumes these for incremental tool UI (verify or add minimal display).
-- **Files:** apps/dashboard chat/session-workbench.
+- **Done:** Session workbench shows **compact file cards** during stream and on complete for `fs.write` / `fs.append`; **artifact panel** (Code + HTML Preview + Open in browser); sidebar can collapse when artifact opens; system prompt steers model to **fs.write** instead of pasting files in chat.
+- **Files:** apps/dashboard/components/session-workbench.tsx, artifact-panel.tsx, shell.tsx; apps/gateway/src/aiHandler.ts.
 
 ## 6. ~~Task update path (P1)~~ — DONE
 
@@ -97,13 +95,14 @@ Ordered by dependency. **Strategy:** Magic moments first; no broad dashboard pol
 
 ---
 
-## Sprint exit criteria (next pass)
+## Sprint exit criteria (this pass / next)
 
-- Session persistence: server-side transcript save/load and optional session list.
-- FOLDER.md: at least read and apply allowed roots (write behavior can be phase 2).
-- At least one of: task update path, project drill-in, toast/refresh.
-- Proactivity: scheduler running due jobs OR cron parsing in place.
-- Feature ledger and prompt ledger updated after any new implementation.
+- ~~Session persistence + session list~~ — done.
+- ~~FOLDER.md read/apply~~ — done (folder-md.ts + WorkspaceFS).
+- ~~Task update, project drill-in, toast/refresh~~ — done.
+- ~~Proactivity scheduler~~ — done (30s interval + listDueScheduledJobs).
+- **Next high-value:** Multi-agent delegation UX; proactive messages into conversation thread; full cron parsing for jobs; PGlite persistent mode on all hosts (or document in-memory fallback only).
+- Feature ledger + current-state + next-pass updated when behavior changes.
 
 ---
 

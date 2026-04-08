@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "packageManager": "pnpm@10.0.0",
   "scripts": {
-    "dev": "turbo run dev --parallel --filter=@claws/gateway --filter=@claws/dashboard --filter=@claws/worker",
+    "postinstall": "node scripts/bootstrap.mjs --postinstall",
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "dev": "node scripts/bootstrap.mjs && turbo run dev --parallel --filter=@claws/gateway --filter=@claws/dashboard --filter=@claws/worker",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
@@ -13,8 +15,11 @@
     "gateway": "pnpm --filter @claws/gateway dev",
     "dashboard": "pnpm --filter @claws/dashboard dev",
     "worker": "pnpm --filter @claws/worker dev",
+    "web": "pnpm --filter @claws/web dev",
     "claws": "node ./packages/cli/bin/claws.mjs",
-    "create-claws": "node ./packages/create/bin/create-claws.mjs"
+    "create-claws": "node ./packages/create/bin/create-claws.mjs",
+    "qa:chat-stream": "bash scripts/qa-chat-stream.sh",
+    "playwright:install": "pnpm --filter @claws/gateway exec playwright install chromium"
   },
   "bin": {
     "claws": "./packages/cli/bin/claws.mjs",

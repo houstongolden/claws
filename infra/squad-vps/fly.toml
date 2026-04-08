@@ -1,0 +1,5 @@
+app = "hubify-squads"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"

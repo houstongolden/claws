@@ -3,19 +3,28 @@ import { NextResponse } from "next/server";
 const GATEWAY_URL =
   process.env.NEXT_PUBLIC_CLAWS_GATEWAY_URL || "http://localhost:4317";
 
+type ChatBody = {
+  messages?: Array<{ content?: string }>;
+  message?: string;
+  stream?: boolean;
+  chatId?: string;
+  threadId?: string;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
+  mode?: "agent" | "plan" | "chat";
+  maxSteps?: number;
+};
+
 /**
  * POST /api/chat
  *
- * Proxies chat messages to the Claws gateway.
- * Supports both streaming and non-streaming modes:
- * - With `stream: true` in the body, proxies SSE from `/api/chat/stream`
- * - Otherwise, proxies standard JSON from `/api/chat`
+ * Proxies to Claws gateway. Forwards full body (history, chatId, threadId, mode, maxSteps)
+ * so session continuity matches direct gateway calls.
  */
 export async function POST(req: Request) {
   try {
-    let body: { messages?: Array<{ content?: string }>; message?: string; stream?: boolean };
+    let body: ChatBody;
     try {
-      body = (await req.json()) as typeof body;
+      body = (await req.json()) as ChatBody;
     } catch {
       return NextResponse.json(
         { ok: false, error: "Invalid JSON in request body" },
@@ -32,11 +41,20 @@ export async function POST(req: Request) {
       );
     }
 
+    const gatewayPayload = {
+      message: message.trim(),
+      chatId: body.chatId,
+      threadId: body.threadId,
+      history: body.history,
+      mode: body.mode,
+      maxSteps: body.maxSteps,
+    };
+
     if (stream) {
       const gatewayRes = await fetch(`${GATEWAY_URL}/api/chat/stream`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify(gatewayPayload),
       });
 
       if (!gatewayRes.ok || !gatewayRes.body) {
@@ -52,7 +70,7 @@ export async function POST(req: Request) {
         headers: {
           "content-type": "text/event-stream; charset=utf-8",
           "cache-control": "no-cache",
-          "connection": "keep-alive",
+          connection: "keep-alive",
         },
       });
     }
@@ -60,7 +78,7 @@ export async function POST(req: Request) {
     const gatewayRes = await fetch(`${GATEWAY_URL}/api/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify(gatewayPayload),
     });
 
     if (!gatewayRes.ok) {

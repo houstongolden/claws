@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   MessageSquarePlus,
   Search,
@@ -87,9 +87,11 @@ function CollapsibleSection({
   icon: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const [open, setOpenState] = useState(() =>
-    typeof window !== "undefined" ? getSectionOpen(storageKey, defaultOpen) : defaultOpen
-  );
+  /** Always defaultOpen on first paint so SSR matches client (localStorage applied after hydrate). */
+  const [open, setOpenState] = useState(defaultOpen);
+  useLayoutEffect(() => {
+    setOpenState(getSectionOpen(storageKey, defaultOpen));
+  }, [storageKey, defaultOpen]);
   const toggle = useCallback(() => {
     setOpenState((prev) => {
       const next = !prev;
@@ -104,7 +106,7 @@ function CollapsibleSection({
       <button
         type="button"
         onClick={toggle}
-        className="w-full flex items-center gap-1.5 py-1.5 px-2.5 rounded-md text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-hover transition-colors text-left"
+        className="w-full flex items-center gap-1.5 py-2 px-2.5 rounded-xl text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-hover motion-safe:transition-colors text-left"
         aria-expanded={open}
       >
         <ChevronDown
@@ -244,12 +246,19 @@ export function Nav() {
       )}
     >
       {/* Header: logo + collapse */}
-      <div className={cn("shrink-0 border-b border-sidebar-border", collapsed ? "py-3 px-2" : "px-3 pt-3 pb-2")}>
+      <div className={cn("shrink-0 border-b border-sidebar-border/80", collapsed ? "py-3 px-2" : "px-3 pt-3 pb-2")}>
         <div className={cn("flex items-center", collapsed ? "flex-col gap-1 justify-center" : "justify-between gap-2")}>
-          <div className={cn("flex items-center gap-2 min-w-0", collapsed && "flex-col")}>
-            <span className="text-lg leading-none shrink-0" aria-hidden>🦞</span>
+          <div className={cn("flex items-center gap-2.5 min-w-0", collapsed && "flex-col")}>
+            <Link
+              href="/"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[26px] leading-none bg-transparent no-underline hover:opacity-80 active:scale-95 transition-transform"
+              title="Claws"
+              aria-label="Claws home"
+            >
+              🦞
+            </Link>
             {!collapsed && (
-              <span className="text-[13px] font-semibold text-foreground truncate">Claws</span>
+              <span className="text-[15px] font-semibold text-foreground tracking-tight truncate">Claws</span>
             )}
           </div>
           <button
@@ -272,19 +281,19 @@ export function Nav() {
             <Link
               href="/"
               onClick={(e) => { if (isChatRoute) { e.preventDefault(); handleNewChat(); } }}
-              className="w-full flex items-center gap-2.5 rounded-lg py-2 px-3 text-sidebar-foreground hover:bg-sidebar-hover no-underline transition-colors"
+              className="w-full flex items-center justify-center gap-2 rounded-[12px] py-2.5 px-3 bg-foreground text-background hover:opacity-[0.92] active:scale-[0.99] no-underline transition-all shadow-sm font-medium text-[13px] tracking-tight"
             >
               <MessageSquarePlus size={17} strokeWidth={1.6} className="shrink-0" />
-              <span className="text-[13px]">New chat</span>
+              <span>New chat</span>
             </Link>
-            <div className="relative mt-2">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sidebar-foreground/50" />
+            <div className="relative mt-2.5">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-foreground/45" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search chats"
-                className="w-full rounded-lg border border-sidebar-border bg-background/50 pl-8 pr-2.5 py-2 text-[12px] text-foreground placeholder:text-sidebar-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-[12px] border border-sidebar-border bg-background/90 pl-9 pr-3 py-2.5 text-[13px] text-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/80 focus:border-transparent transition-shadow shadow-sm"
                 aria-label="Search chats"
               />
             </div>
@@ -315,8 +324,8 @@ export function Nav() {
                   type="button"
                   onClick={() => setProjectsDropdownOpen((o) => !o)}
                   className={cn(
-                    "w-full flex items-center gap-2 py-1.5 px-2.5 my-0.5 rounded-md transition-colors",
-                    isActive ? "text-sidebar-active bg-sidebar-active-bg/80" : "text-sidebar-foreground hover:bg-sidebar-hover"
+                    "w-full flex items-center gap-2 py-2 px-2.5 my-0.5 rounded-xl transition-colors duration-150",
+                    isActive ? "text-sidebar-active bg-sidebar-active-bg font-medium shadow-sm" : "text-sidebar-foreground hover:bg-sidebar-hover"
                   )}
                   title={item.label}
                 >
@@ -460,7 +469,7 @@ export function Nav() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-2 rounded-md py-1.5 px-2.5 text-[12px] no-underline transition-colors",
+                    "flex items-center gap-2 rounded-xl py-2 px-2.5 text-[12px] no-underline motion-safe:transition-colors",
                     collapsed ? "justify-center px-2" : "gap-2",
                     isActive
                       ? "text-sidebar-active bg-sidebar-active-bg/80"
@@ -609,8 +618,8 @@ function ChatRow({
         type="button"
         onClick={onSelect}
         className={cn(
-          "w-full flex items-center justify-center rounded-lg py-1.5 px-2 text-left transition-colors",
-          isActive ? "bg-sidebar-active-bg text-sidebar-active" : "text-sidebar-foreground hover:bg-sidebar-hover"
+          "w-full flex items-center justify-center rounded-xl py-2 px-2 text-left motion-safe:transition-colors",
+          isActive ? "bg-sidebar-active-bg text-sidebar-active ring-1 ring-sidebar-border" : "text-sidebar-foreground hover:bg-sidebar-hover"
         )}
         title={item.title}
       >
@@ -635,7 +644,7 @@ function ChatRow({
               setEditing(false);
             }
           }}
-          className="w-full rounded border border-sidebar-border bg-background px-2 py-1 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full rounded-xl border border-sidebar-border bg-background px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
         />
       </div>
     );
@@ -644,17 +653,19 @@ function ChatRow({
   return (
     <div
       className={cn(
-        "w-full flex items-center gap-1 rounded-lg py-1.5 px-3 text-left transition-colors group",
-        isActive ? "bg-sidebar-active-bg text-sidebar-active" : "text-sidebar-foreground hover:bg-sidebar-hover"
+        "w-full flex items-center gap-1 rounded-[12px] py-2 px-2 text-left motion-safe:transition-[background,box-shadow] duration-200 group",
+        isActive
+          ? "bg-sidebar-active-bg text-sidebar-active ring-1 ring-sidebar-border/80 shadow-sm"
+          : "text-sidebar-foreground hover:bg-sidebar-hover/90 motion-safe:hover-lift"
       )}
     >
       <button
         type="button"
         onClick={onSelect}
-        className="flex-1 min-w-0 flex items-center gap-2 text-left"
+        className="flex-1 min-w-0 flex items-center gap-2 text-left rounded-[10px] py-0.5 -my-0.5 focus-visible:ring-2 focus-visible:ring-ring/25"
         title={item.title}
       >
-        <span className="flex-1 min-w-0 text-[12px] truncate">{item.title}</span>
+        <span className="flex-1 min-w-0 text-[12px] font-medium truncate leading-snug">{item.title}</span>
       </button>
       <button
         type="button"
@@ -677,7 +688,7 @@ function ChatRow({
       >
         <Pencil size={12} />
       </button>
-      <span className="text-[10px] text-sidebar-foreground/50 shrink-0">{formatTime(item.lastActivity)}</span>
+      <span className="text-[10px] tabular-nums text-sidebar-foreground/45 shrink-0 rounded-md bg-sidebar-hover/50 px-1.5 py-0.5">{formatTime(item.lastActivity)}</span>
     </div>
   );
 }

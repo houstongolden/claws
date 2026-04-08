@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "blocks": [
+    { "id": "blk_1", "type": "greeting", "order": 0 },
+    { "id": "blk_2", "type": "tasks", "order": 1, "config": { "limit": 5 } },
+    { "id": "blk_3", "type": "activity", "order": 2, "config": { "limit": 5 } },
+    { "id": "blk_4", "type": "stats", "order": 3, "config": { "show": ["budget", "health"] } },
+    { "id": "blk_5", "type": "memory", "order": 4, "config": { "limit": 3 } }
+  ]
+}

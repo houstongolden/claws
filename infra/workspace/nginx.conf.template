@@ -1,0 +1,1112 @@
+worker_processes 1;
+events { worker_connections 1024; }
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json;
+    gzip_min_length 256;
+
+    # ── WebSocket upgrade map ──
+    # Only set Connection to "upgrade" when the client sends an Upgrade header
+    # Without this, non-WebSocket requests get broken Connection headers
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    # ── Logging configuration ──
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log warn;
+
+    # ══════════════════════════════════════════════════════════════════════
+    # RATE LIMITING ZONES — Protect against abuse and DDoS
+    # ══════════════════════════════════════════════════════════════════════
+    
+    # API rate limiting: 100 requests per minute per IP
+    # Used for general API endpoints (/api/stats, /api/files, /api/skills-list, etc.)
+    # Zone size 10m stores state for ~160k IP addresses (reasonable for workspace)
+    limit_req_zone $binary_remote_addr zone=api:10m rate=100r/m;
+    
+    # Authentication rate limiting: 10 requests per minute per IP  
+    # Fail2ban-style protection for /login and /auth/* endpoints
+    # Severely limits brute force attacks on auth
+    limit_req_zone $binary_remote_addr zone=auth:10m rate=10r/m;
+    
+    # Strict rate limiting for password attempts: 5 per minute
+    # Protects /auth/login POST specifically (login form submissions)
+    limit_req_zone $binary_remote_addr zone=auth_strict:10m rate=5r/m;
+
+    # ══════════════════════════════════════════════════════════════════════
+    # DDoS MITIGATION HEADERS
+    # ══════════════════════════════════════════════════════════════════════
+    
+    # Limit request header size to 4KB
+    # Prevents HTTP header-based attacks and malformed requests
+    large_client_header_buffers 4 8k;
+    
+    # Maximum request body size: 10MB
+    # Prevents upload-based DoS attacks while allowing reasonable file uploads
+    client_max_body_size 10m;
+    
+    # Timeout for reading request headers (30s)
+    # Prevents slowloris attacks that keep connections open
+    client_header_timeout 30s;
+    
+    # Timeout for reading request body (30s)
+    client_body_timeout 30s;
+    
+    # Timeout for sending responses to client (30s)
+    send_timeout 30s;
+
+    server {
+        listen 80;
+        server_name _;
+
+        # ── JWT Auth validation (internal subrequest for auth_request) ──
+        # Validates the hubify_ws_token cookie against the stats server
+        # Returns 200 (X-Auth-Username header set) on valid token, 401 on invalid/missing
+        location = /_auth {
+            internal;
+            proxy_pass              http://127.0.0.1:4000/auth/validate;
+            proxy_pass_request_body off;
+            proxy_set_header        Content-Length "";
+            proxy_set_header        Host $host;
+            proxy_set_header        X-Real-IP $remote_addr;
+            # Pass the workspace JWT cookie as a header for validation
+            proxy_set_header        X-Workspace-Token $cookie_hubify_ws_token;
+            access_log off;
+        }
+
+        # ── Login redirect when auth fails (401/403) ──
+        # Redirects through the workspace-redirect endpoint which:
+        # 1. Checks Clerk auth (redirects to /login if not signed in)
+        # 2. Signs a JWT token for this workspace
+        # 3. Sets the hubify_ws_token cookie on .hubify.com
+        # 4. Redirects back to this workspace subdomain
+        # This creates a seamless auth loop: workspace → JWT endpoint → workspace
+        location @login_redirect {
+            return 302 https://hubify.com/api/workspace-redirect?workspace=${HUBIFY_USERNAME}&path=$request_uri;
+        }
+
+        # ── Terminal auth failure (no redirect) ──
+        # /terminal/ should return 401 instead of redirecting to /login
+        # Ensure a single Content-Type header on 401 responses
+        location @terminal_unauth {
+            default_type text/plain;
+            add_header Cache-Control "no-store" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            return 401 "Unauthorized";
+        }
+
+        # ══════════════════════════════════════════════════════════════════════
+        # PUBLIC ROUTES (no auth required) — login, health checks, config
+        # ══════════════════════════════════════════════════════════════════════
+
+        # ── Fly.io health check — PUBLIC (no auth) ──
+        # Used by Fly health checks, no authentication needed
+        # Use default_type (not add_header) to avoid duplicate Content-Type
+        location = /__health {
+            access_log off;
+            default_type text/plain;
+            return 200 "ok";
+        }
+
+        # ── Workspace config JS — PUBLIC (needed for login flow) ──
+        # NOTE: gatewayToken/tokens intentionally omitted — secrets never in public JS
+        # Clients will authenticate first, then receive real tokens via /api endpoints
+        location = /config.js {
+            default_type application/javascript;
+            add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate";
+            return 200 'window.HUBIFY_CONFIG = { username: "${HUBIFY_USERNAME}", hubId: "${HUB_ID}", workspaceUrl: "https://${HUBIFY_USERNAME}.hubify.com", terminalUrl: "https://hubify-ws-${HUBIFY_USERNAME}.fly.dev:8080", gatewayUrl: "wss://${HUBIFY_USERNAME}.hubify.com/gateway/", controlUrl: "/control/", gatewayTokenUrl: "/api/gateway-token" };';
+        }
+
+        # ── (Removed /auth/login endpoint — auth now entirely via Clerk JWT cookie) ──
+
+        # ══════════════════════════════════════════════════════════════════════
+        # DEFENSE IN DEPTH: Block sensitive files BEFORE auth check
+        # These return 403 always, protecting secrets even if auth is misconfigured
+        # ══════════════════════════════════════════════════════════════════════
+
+        # Block direct HTTP access to openclaw.json, .env, and .git
+        # Uses types {} to suppress default_type inheritance and avoid duplicate Content-Type
+        location ~ /(openclaw\.json|\.env|workspace/openclaw\.json|\.git) {
+            access_log off;
+            types {}
+            default_type "text/plain";
+            add_header Cache-Control "no-store" always;
+            add_header X-Robots-Tag "noindex" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            return 403 "Forbidden: Access to sensitive config files denied";
+        }
+
+        # Block attempts to access other configuration and secret files
+        location ~ (config\.json|fly\.toml|\.netrc|\.pgpass|\.ssh|\.vault|secrets|password|credential|private_key|aws_access_key|rsa_|ecdsa_|\.pub|\.pem|\.pfx|\.p12|\.docker|htpasswd) {
+            access_log off;
+            types {}
+            default_type "text/plain";
+            add_header Cache-Control "no-store" always;
+            add_header X-Robots-Tag "noindex" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            return 403 "Forbidden: Access to sensitive files denied";
+        }
+
+        # ══════════════════════════════════════════════════════════════════════
+        # PROTECTED ROUTES (all require JWT auth via auth_request)
+        # If auth fails, user is redirected to hubify.com/login
+        # ══════════════════════════════════════════════════════════════════════
+
+        # ── Dashboard UI — PROTECTED ──
+        # Main workspace dashboard served from /opt/dashboard
+        # Protected by JWT auth — unauthenticated requests 302 redirect to /login
+        # WebSocket upgrade requests at root are proxied to OpenClaw gateway (port 3000)
+        # because the control UI iframe connects WebSocket to the page origin root
+        location / {
+            auth_request /_auth;
+            auth_request_set $auth_username $upstream_http_x_auth_username;
+            error_page 401 403 = @login_redirect;
+
+            # WebSocket proxy config (only active when proxy_pass triggers)
+            # trusted-proxy: pass username header so gateway trusts the connection
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP 127.0.0.1;
+            proxy_set_header X-Forwarded-For 127.0.0.1;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Auth-Username ${HUBIFY_USERNAME};
+            proxy_read_timeout 43200s;
+            proxy_send_timeout 43200s;
+
+            # Route WebSocket upgrades to OpenClaw gateway
+            if ($http_upgrade = "websocket") {
+                proxy_pass http://127.0.0.1:3000;
+            }
+
+            root /opt/dashboard;
+            index index.html;
+            try_files $uri $uri/ /index.html;
+            add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate";
+
+            # ── Security Headers ──
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-XSS-Protection "1; mode=block" always;
+            add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+            # CSP: allow wss: for OpenClaw control UI WebSocket in iframe
+            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https: wss:; frame-src 'self';" always;
+        }
+
+        # ── OpenClaw Control UI — PROTECTED ──
+        # Web-based control panel for the workspace, proxies to OpenClaw on port 3000
+        # Auth: trusted-proxy mode — nginx validates JWT, then passes username header
+        # Gateway trusts connections from 127.0.0.1 and reads x-auth-username header
+        # This bypasses device pairing entirely (proxy is the trust boundary)
+        location = /control/ {
+            auth_request /_auth;
+            auth_request_set $auth_username $upstream_http_x_auth_username;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass http://127.0.0.1:3000/;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP 127.0.0.1;
+            proxy_set_header X-Forwarded-For 127.0.0.1;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Auth-Username ${HUBIFY_USERNAME};
+
+            # Strip upstream frame-blocking headers so our SAMEORIGIN takes effect
+            proxy_hide_header X-Frame-Options;
+            proxy_hide_header Content-Security-Policy;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header Content-Security-Policy "frame-ancestors 'self' https://${HUBIFY_USERNAME}.hubify.com" always;
+        }
+
+        # Control UI sub-resources + WebSocket — no auth_request
+        # trusted-proxy: nginx passes username header, gateway trusts loopback source
+        # No device pairing needed — the proxy IS the auth layer
+        location /control/ {
+            proxy_pass http://127.0.0.1:3000/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP 127.0.0.1;
+            proxy_set_header X-Forwarded-For 127.0.0.1;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Auth-Username ${HUBIFY_USERNAME};
+            proxy_read_timeout 43200s;
+            proxy_send_timeout 43200s;
+
+            # Strip upstream frame-blocking headers so our SAMEORIGIN takes effect
+            proxy_hide_header X-Frame-Options;
+            proxy_hide_header Content-Security-Policy;
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header Content-Security-Policy "frame-ancestors 'self' https://${HUBIFY_USERNAME}.hubify.com" always;
+        }
+
+        # ── OpenClaw WebSocket gateway — NO auth_request ──
+        # trusted-proxy mode: nginx passes username header, gateway trusts loopback
+        # Users must pass JWT auth to load the dashboard/Control UI first
+        location /gateway/ {
+            proxy_pass http://127.0.0.1:3000/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP 127.0.0.1;
+            proxy_set_header X-Forwarded-For 127.0.0.1;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header X-Auth-Username ${HUBIFY_USERNAME};
+            proxy_read_timeout 43200s;
+            proxy_send_timeout 43200s;
+        }
+
+        # ── Terminal legacy path (/ttyd) — NO auth_request ──
+        # Legacy clients may still request /ttyd; ttyd has its own HTTP Basic Auth
+        # auth_request blocks WebSocket upgrade, so we rely on ttyd's built-in auth
+        location ^~ /ttyd {
+            proxy_pass http://localhost:8080/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header Authorization "Basic ${TERMINAL_AUTH_BASIC}";
+            proxy_read_timeout 43200s;
+            proxy_send_timeout 43200s;
+
+            # Security headers for terminal
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Cache-Control "no-store" always;
+        }
+
+        # ── Terminal (ttyd) — PROTECTED by BOTH JWT and ttyd HTTP Basic Auth ──
+        # Double-layered security:
+        #   1. Nginx verifies JWT token (auth_request to /_auth)
+        #   2. ttyd validates HTTP Basic Auth (username:password)
+        # Users must pass BOTH checks to access the terminal
+
+        # Exact /terminal (no trailing slash) — enforce auth, then redirect to HTTPS /terminal/
+        location = /terminal {
+            auth_request /_auth;
+            auth_request_set $auth_username $upstream_http_x_auth_username;
+            error_page 401 403 = @terminal_unauth;
+            return 301 https://$host/terminal/;
+        }
+
+        # Terminal HTML page — auth protected
+        location = /terminal/ {
+            auth_request /_auth;
+            auth_request_set $auth_username $upstream_http_x_auth_username;
+            error_page 401 403 = @terminal_unauth;
+
+            proxy_pass http://localhost:8080/;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header Authorization "Basic ${TERMINAL_AUTH_BASIC}";
+
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Cache-Control "no-store" always;
+        }
+
+        # Terminal sub-resources + WebSocket — ttyd Basic Auth only (no auth_request)
+        # auth_request interferes with WebSocket upgrade handshake, so we skip it
+        # here and rely on ttyd's built-in HTTP Basic Auth (auto-injected by nginx)
+        location /terminal/ {
+            proxy_pass http://localhost:8080/;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header Authorization "Basic ${TERMINAL_AUTH_BASIC}";
+            proxy_read_timeout 43200s;
+            proxy_send_timeout 43200s;
+
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header Cache-Control "no-store" always;
+        }
+
+        # ── Gateway health endpoint (internal) ──
+        # Used by health checks; no auth required (internal only)
+        location = /health {
+            access_log off;
+            proxy_pass http://127.0.0.1:3000/health;
+            proxy_set_header Host $host;
+            add_header Content-Type text/plain;
+        }
+
+        # ── Stats API — PROTECTED + RATE LIMITED ──
+        # Workspace statistics and monitoring API
+        # Rate limit: 100 requests per minute per IP with burst of 20
+        location = /api/stats {
+            limit_req zone=api burst=20 nodelay;
+            
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/stats;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Files API — PROTECTED + RATE LIMITED + block sensitive patterns ──
+        # File listing and manipulation (upload/download/delete)
+        # Rate limit: 100 requests per minute per IP with burst of 20
+        # Defense in depth: also check request parameters for sensitive paths
+        location /api/files {
+            limit_req zone=api burst=20 nodelay;
+            
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            # Extra nginx-layer block for sensitive path patterns in query string
+            # Defense in depth: prevents directory traversal and sensitive file access
+            if ($arg_path ~* "(openclaw\.json|\.env|htpasswd|\.ssh|secrets|password|credential|private_key|\.netrc|\.pgpass|\.git|\.vault)") {
+                return 403 "Forbidden: sensitive file";
+            }
+
+            proxy_pass         http://127.0.0.1:4000/files;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        location /api/files/ {
+            limit_req zone=api burst=20 nodelay;
+            
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            if ($arg_path ~* "(openclaw\.json|\.env|htpasswd|\.ssh|secrets|password|credential|private_key|\.netrc|\.pgpass|\.git|\.vault)") {
+                return 403 "Forbidden: sensitive file";
+            }
+
+            proxy_pass         http://127.0.0.1:4000/files/;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Skills list — PROTECTED + RATE LIMITED ──
+        # List all available skills in the workspace
+        location = /api/skills-list {
+            limit_req zone=api burst=20 nodelay;
+            
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/skills-list;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Integrations API — PROTECTED + RATE LIMITED ──
+        # Manage external integrations (GitHub, Slack, etc.)
+        location = /api/integrations {
+            limit_req zone=api burst=20 nodelay;
+            
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/integrations;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Skill install — PROTECTED + RATE LIMITED ──
+        # Install new skills into the workspace
+        location = /api/install-skill {
+            limit_req zone=api burst=20 nodelay;
+            
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/install-skill;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Gateway token — PROTECTED + RATE LIMITED ──
+        # Returns the gateway auth token for Control UI WebSocket connection
+        location = /api/gateway-token {
+            limit_req zone=api burst=5 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/gateway-token;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Gateway status — PROTECTED + RATE LIMITED ──
+        # Check if the OpenClaw gateway is running
+        location = /api/gateway-status {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/gateway-status;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── File write — PROTECTED + RATE LIMITED ──
+        # Write file content to workspace
+        location = /api/files/write {
+            limit_req zone=api burst=10 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/files/write;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── File delete — PROTECTED + RATE LIMITED ──
+        location = /api/files/delete {
+            limit_req zone=api burst=5 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/files/delete;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── File rename — PROTECTED + RATE LIMITED ──
+        location = /api/files/rename {
+            limit_req zone=api burst=5 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/files/rename;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Integrations configure — PROTECTED + RATE LIMITED ──
+        # Configure integration credentials
+        location = /api/integrations/configure {
+            limit_req zone=api burst=10 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/integrations/configure;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── SmartSync: Check for template updates — PROTECTED + RATE LIMITED ──
+        location = /api/smartsync/check {
+            limit_req zone=api burst=5 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/smartsync/check;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── SmartSync: Apply template update — PROTECTED + RATE LIMITED ──
+        location = /api/smartsync/apply {
+            limit_req zone=api burst=2 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/smartsync/apply;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_read_timeout 30s;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── SmartSync: Current sync status — PROTECTED + RATE LIMITED ──
+        location = /api/smartsync/status {
+            limit_req zone=api burst=5 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/smartsync/status;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Git Sync: Status — PROTECTED + RATE LIMITED ──
+        location = /api/git/status {
+            limit_req zone=api burst=10 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/git/status;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_read_timeout 60s;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Git Sync: Initialize repo — PROTECTED + RATE LIMITED ──
+        location = /api/git/init {
+            limit_req zone=api burst=2 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/git/init;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_read_timeout 60s;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Git Sync: Push to GitHub — PROTECTED + RATE LIMITED ──
+        location = /api/git/push {
+            limit_req zone=api burst=2 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/git/push;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_read_timeout 60s;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Git Sync: Pull from GitHub — PROTECTED + RATE LIMITED ──
+        location = /api/git/pull {
+            limit_req zone=api burst=2 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/git/pull;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_read_timeout 60s;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Git Sync: Diff preview — PROTECTED + RATE LIMITED ──
+        location = /api/git/diff {
+            limit_req zone=api burst=5 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/git/diff;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_read_timeout 60s;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Template config — PROTECTED + RATE LIMITED ──
+        # Get current template view configuration for sidebar/theming
+        location = /api/template-config {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/template-config;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Switch template — PROTECTED + RATE LIMITED ──
+        # Switch the active template view (changes HUB.yaml)
+        location = /api/switch-template {
+            limit_req zone=api burst=5 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/switch-template;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Gateway restart — PROTECTED + RATE LIMITED ──
+        # Restart the OpenClaw gateway (admin operation)
+        location = /api/gateway-restart {
+            limit_req zone=api burst=20 nodelay;
+            
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/gateway-restart;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── First-boot check — PROTECTED + RATE LIMITED ──
+        # Check if this is the user's first time opening the workspace
+        location = /api/first-boot {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/first-boot;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Mark onboarded — PROTECTED + RATE LIMITED ──
+        # Mark onboarding as complete
+        location = /api/mark-onboarded {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/mark-onboarded;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Skip onboarding step — PROTECTED + RATE LIMITED ──
+        location = /api/skip-step {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/skip-step;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Context API — PROTECTED + RATE LIMITED ──
+        # Dashboard v2: parsed user context (USER.md, MEMORY.md, etc.)
+        location = /api/context {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/context;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Onboarding status — PROTECTED + RATE LIMITED ──
+        # Dashboard v2: granular onboarding step tracking
+        location = /api/onboarding-status {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/onboarding-status;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Agent activity — PROTECTED + RATE LIMITED ──
+        # Dashboard v2: recent agent file changes
+        location = /api/agent-activity {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/agent-activity;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Heartbeat State API — PROTECTED ──
+        location = /api/heartbeat-state {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/heartbeat-state;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Cron Log API — PROTECTED ──
+        location = /api/cron-log {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/cron-log;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Budget / Usage API — PROTECTED ──
+        location = /api/budget {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/budget;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Skill catalog — PROTECTED + RATE LIMITED ──
+        location = /api/skill-catalog {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/skill-catalog;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Memory append — PROTECTED + RATE LIMITED ──
+        location = /api/memory/append {
+            limit_req zone=api burst=10 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/memory/append;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Tasks add (legacy) — PROTECTED + RATE LIMITED ──
+        location = /api/tasks/add {
+            limit_req zone=api burst=10 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/tasks/add;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Tasks CRUD — PROTECTED + RATE LIMITED ──
+        # GET /api/tasks (list) + POST /api/tasks (create)
+        location = /api/tasks {
+            limit_req zone=api burst=20 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/tasks;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_method       $request_method;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Tasks bulk update — PROTECTED + RATE LIMITED ──
+        location = /api/tasks/bulk {
+            limit_req zone=api burst=10 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/tasks/bulk;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Tasks by ID (PATCH/DELETE) — PROTECTED + RATE LIMITED ──
+        location ~ ^/api/tasks/(tsk_[a-f0-9]+)$ {
+            limit_req zone=api burst=10 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/tasks/$1;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_method       $request_method;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Projects CRUD — PROTECTED + RATE LIMITED ──
+        location = /api/projects {
+            limit_req zone=api burst=10 nodelay;
+
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/projects;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_method       $request_method;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Notifications — PROTECTED + RATE LIMITED ──
+        location = /api/notifications {
+            limit_req zone=api burst=20 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/notifications;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Notifications read — PROTECTED + RATE LIMITED ──
+        location = /api/notifications/read {
+            limit_req zone=api burst=10 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/notifications/read;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Notifications dismiss — PROTECTED + RATE LIMITED ──
+        location = /api/notifications/dismiss {
+            limit_req zone=api burst=10 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/notifications/dismiss;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Notifications preferences — PROTECTED + RATE LIMITED ──
+        location = /api/notifications/preferences {
+            limit_req zone=api burst=5 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/notifications/preferences;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Skill executions — PROTECTED + RATE LIMITED ──
+        location = /api/skill-executions {
+            limit_req zone=api burst=20 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/skill-executions;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Skill executions log — PROTECTED + RATE LIMITED ──
+        location = /api/skill-executions/log {
+            limit_req zone=api burst=10 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/skill-executions/log;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Memory timeline — PROTECTED + RATE LIMITED ──
+        location = /api/memory/timeline {
+            limit_req zone=api burst=20 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/memory/timeline;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Memory search — PROTECTED + RATE LIMITED ──
+        location = /api/memory/search {
+            limit_req zone=api burst=20 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/memory/search;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Memory teach — PROTECTED + RATE LIMITED ──
+        location = /api/memory/teach {
+            limit_req zone=api burst=10 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/memory/teach;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Dashboard Blocks (Phase 14C) ──
+        location = /api/dashboard-blocks {
+            limit_req zone=api burst=10 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/dashboard-blocks;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        location ~ ^/api/dashboard-blocks/(blk_[a-z0-9]+)$ {
+            limit_req zone=api burst=10 nodelay;
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/dashboard-blocks/$1;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            add_header         Cache-Control "no-store";
+        }
+
+        # ── Export Data (Phase 15D) ──
+        location = /api/export {
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+            proxy_pass         http://127.0.0.1:4000/export;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_read_timeout 60s;
+        }
+
+        # ── SSE Events — PROTECTED (no buffering for real-time) ──
+        location = /api/events {
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:4000/events;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP $remote_addr;
+            proxy_set_header   Connection '';
+            proxy_buffering    off;
+            proxy_cache        off;
+            proxy_read_timeout 86400s;
+            chunked_transfer_encoding off;
+            add_header         Cache-Control "no-store";
+            add_header         X-Accel-Buffering "no";
+        }
+
+        # ── Sessions API — PROTECTED ──
+        # OpenClaw sessions management
+        location = /__openclaw__/sessions {
+            auth_request /_auth;
+            error_page 401 403 = @login_redirect;
+
+            proxy_pass         http://127.0.0.1:3000/sessions;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_set_header   X-Real-IP 127.0.0.1;
+            proxy_set_header   X-Forwarded-For 127.0.0.1;
+            proxy_set_header   X-Auth-Username ${HUBIFY_USERNAME};
+            add_header         Cache-Control "no-store";
+        }
+    }
+}

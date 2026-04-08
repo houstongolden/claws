@@ -1,21 +1,23 @@
 import { banner, fmt, cmd, blank, hr, hint } from "../ui.mjs";
 
 const COMMANDS = {
-  "Getting started": {
-    "setup": "Initialize home directory and config",
-    "onboard": "Guided onboarding wizard",
+  "Chat": {
+    "(default)": "Interactive REPL — just run 'claws'",
+    '"prompt"': "One-shot prompt — claws \"build a landing page\"",
+    "chat <message>": "Send a message (alias for one-shot)",
   },
   "Operate": {
-    "tui": "Full-screen operator dashboard (keyboard-first)",
-    "status": "Quick runtime summary",
-    "doctor": "Comprehensive health check",
+    "status, st": "Quick runtime summary",
+    "doctor, doc": "Comprehensive health check",
+    "tui": "Full-screen operator dashboard",
   },
   "Services": {
-    "gateway": "Start the gateway server",
-    "dashboard": "Open the browser dashboard",
+    "gateway, gw": "Start the gateway server",
+    "dashboard, dash": "Open the browser dashboard",
   },
-  "Interact": {
-    "chat <message>": "Send a message to the gateway",
+  "Setup": {
+    "setup": "Initialize home directory and config",
+    "onboard, ob": "Guided onboarding wizard",
   },
 };
 
@@ -35,7 +37,7 @@ const SUBHELP = {
       ["--install-daemon", "Install a launchd/systemd service for the gateway"],
       ["--name <name>", 'Your name (default: "Builder")'],
       ["--workspace <name>", 'Workspace name (default: "Life OS")'],
-      ["--model <model>", 'Default AI model (default: "gpt-4o-mini")'],
+      ["--model <model>", 'Default AI model (default: "openai/gpt-5.4")'],
     ],
     see: ["claws doctor", "claws gateway"],
   },
@@ -46,13 +48,13 @@ const SUBHELP = {
     see: ["claws status", "claws tui"],
   },
   status: {
-    desc: "Quick operator summary: services, runtime counts, AI config, proactive jobs. For the full interactive view, use claws tui.",
+    desc: "Quick operator summary: services, runtime counts, AI config, proactive jobs.",
     usage: "claws status",
     flags: [],
     see: ["claws tui", "claws doctor"],
   },
   gateway: {
-    desc: "Start the Claws gateway server. Reads config for port, workspace, and runtime paths. Detects port conflicts and already-running instances.",
+    desc: "Start the Claws gateway server. Reads config for port, workspace, and runtime paths.",
     usage: "claws gateway [--port <port>]",
     flags: [["--port <port>", "Override the gateway port"]],
     see: ["claws status", "claws dashboard"],
@@ -64,7 +66,7 @@ const SUBHELP = {
     see: ["claws tui", "claws gateway"],
   },
   chat: {
-    desc: "Send a chat message to the running gateway.",
+    desc: "Send a chat message. With no message, opens interactive REPL. With a message, runs one-shot and drops into REPL.",
     usage: 'claws chat "your message"',
     flags: [],
     see: ["claws tui", "claws gateway"],
@@ -79,9 +81,7 @@ const SUBHELP = {
       ["Enter", "Inspect session or trace"],
       ["s a t c w l", "Jump to a pane directly"],
       ["y / n", "Approve / deny (in Approvals pane)"],
-      ["Y / A", "Approve for session / always"],
       ["r", "Refresh data"],
-      ["?", "Show all keyboard shortcuts"],
       ["q / Ctrl+C", "Quit"],
     ],
     see: ["claws status", "claws doctor"],
@@ -97,7 +97,9 @@ export function printHelp(subcommand) {
   banner();
 
   console.log(`  ${fmt.bold("Usage")}`);
-  console.log(`    ${fmt.cyan("claws")} ${fmt.dim("<command>")} [options]`);
+  console.log(`    ${fmt.cyan("claws")}                          ${fmt.dim("Interactive REPL")}`);
+  console.log(`    ${fmt.cyan("claws")} ${fmt.dim('"build me a page"')}       ${fmt.dim("One-shot prompt")}`);
+  console.log(`    ${fmt.cyan("claws")} ${fmt.dim("<command>")} [options]     ${fmt.dim("Subcommand")}`);
   blank();
 
   for (const [group, cmds] of Object.entries(COMMANDS)) {
@@ -108,25 +110,22 @@ export function printHelp(subcommand) {
     blank();
   }
 
+  console.log(`  ${fmt.bold("REPL Commands")}`);
+  cmd("/help", "Show commands");
+  cmd("/status", "Runtime summary");
+  cmd("/tools", "List available tools");
+  cmd("/model", "Show current model");
+  cmd("/clear", "Clear conversation");
+  cmd("/quit", "Exit");
+  blank();
+
   console.log(`  ${fmt.bold("Options")}`);
   cmd("--help, -h", "Show help (use claws <cmd> --help for details)");
   cmd("--version, -v", "Print version");
   blank();
 
-  console.log(`  ${fmt.bold("Workflow")}`);
-  hint("  setup → onboard → doctor → status → tui");
-  blank();
-
-  console.log(`  ${fmt.bold("Install")}`);
-  hint("  npx @claws-so/create          Bootstrap a new workspace");
-  hint("  npm install -g @claws-so/cli   Install the CLI globally");
-  blank();
-
-  console.log(`  ${fmt.bold("Environment")}`);
-  hint("  CLAWS_HOME             Override ~/.claws");
-  hint("  CLAWS_WORKSPACE_DIR    Override workspace path");
-  hint("  CLAWS_STATE_DIR        Override runtime path");
-  hint("  CLAWS_CONFIG_PATH      Override config file path");
+  console.log(`  ${fmt.bold("Quick Start")}`);
+  hint("  claws onboard → claws gateway → claws");
   blank();
 }
 
@@ -165,5 +164,5 @@ function printSubHelp(name) {
 }
 
 export function printVersion() {
-  console.log(`${fmt.cyan("ᐳᐸ")} claws ${fmt.dim("0.1.0")}`);
+  console.log(`${fmt.cyan("🦞")} claws ${fmt.dim("0.1.0")}`);
 }

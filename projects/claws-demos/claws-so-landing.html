@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claws.so — Local-first agent OS</title>
+  <meta name="description" content="Claws.so is a local-first agent OS for vibe coding, research, and computer use — fast, polished, and built to ship." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --bg-soft: #101114;
+      --panel: rgba(255,255,255,0.05);
+      --panel-strong: rgba(255,255,255,0.08);
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --line: rgba(255,255,255,0.10);
+      --line-strong: rgba(255,255,255,0.16);
+      --accent: #f97316;
+      --accent-2: #fb923c;
+      --accent-glow: rgba(249,115,22,0.32);
+      --success: #34d399;
+      --shadow: 0 20px 80px rgba(0,0,0,0.45);
+      --radius-xl: 28px;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --max: 1160px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(249,115,22,0.14), transparent 28%),
+        radial-gradient(circle at 85% 0%, rgba(255,255,255,0.05), transparent 24%),
+        linear-gradient(180deg, #0b0b0d 0%, #09090b 42%, #070709 100%);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: radial-gradient(circle at center, black 35%, transparent 88%);
+      opacity: 0.25;
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: 0.08;
+      background-image: radial-gradient(rgba(255,255,255,0.85) 0.6px, transparent 0.6px);
+      background-size: 10px 10px;
+      mix-blend-mode: soft-light;
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .container {
+      width: min(var(--max), calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(16px);
+      background: linear-gradient(to bottom, rgba(9,9,11,0.78), rgba(9,9,11,0.42));
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 0;
+      gap: 20px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: #120a04;
+      background: linear-gradient(135deg, #fed7aa 0%, #f97316 48%, #c2410c 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.45),
+        0 10px 30px rgba(249,115,22,0.28);
+      font-family: "Space Grotesk", Inter, sans-serif;
+      font-size: 14px;
+    }
+
+    .brand span:last-child {
+      font-size: 1rem;
+      color: #fafafa;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .nav-link,
+    .button,
+    .button-secondary {
+      border-radius: 999px;
+      transition: 180ms ease;
+    }
+
+    .nav-link {
+      color: var(--muted);
+      padding: 10px 14px;
+      font-size: 0.95rem;
+    }
+
+    .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 13px 18px;
+      background: linear-gradient(180deg, #ff9a4d 0%, #f97316 60%, #d65f10 100%);
+      color: #1d0e03;
+      font-weight: 800;
+      border: 1px solid rgba(255,255,255,0.18);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.35),
+        0 20px 40px rgba(249,115,22,0.22);
+    }
+
+    .button:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.35),
+        0 24px 50px rgba(249,115,22,0.30);
+    }
+
+    .button-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 13px 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--line);
+      color: #ededed;
+      font-weight: 600;
+    }
+
+    .button-secondary:hover {
+      background: rgba(255,255,255,0.07);
+      border-color: var(--line-strong);
+      transform: translateY(-1px);
+    }
+
+    .hero {
+      padding: 76px 0 42px;
+    }
+
+    .hero-shell {
+      position: relative;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+        rgba(10,10,12,0.76);
+      box-shadow: var(--shadow);
+      border-radius: calc(var(--radius-xl) + 6px);
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .hero-shell::before {
+      content: "";
+      position: absolute;
+      inset: -20% auto auto -10%;
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(249,115,22,0.24), transparent 70%);
+      z-index: -1;
+      filter: blur(8px);
+    }
+
+    .hero-inner {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 30px;
+      align-items: center;
+      padding: 54px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: #ffd9be;
+      font-size: 0.86rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      background: rgba(249,115,22,0.10);
+      border: 1px solid rgba(249,115,22,0.22);
+      margin-bottom: 22px;
+    }
+
+    .eyebrow-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #fb923c;
+      box-shadow: 0 0 0 6px rgba(249,115,22,0.14);
+    }
+
+    h1 {
+      margin: 0;
+      font-family: "Space Grotesk", Inter, sans-serif;
+      font-size: clamp(3rem, 8vw, 6.4rem);
+      line-height: 0.93;
+      letter-spacing: -0.06em;
+      max-width: 10ch;
+    }
+
+    .hero-copy p {
+      margin: 22px 0 0;
+      max-width: 62ch;
+      color: #c8c8cf;
+      font-size: 1.08rem;
+      line-height: 1.7;
+    }
+
+    .cta-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-top: 28px;
+    }
+
+    .install-card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+      border-radius: var(--radius-xl);
+      padding: 20px;
+      margin-top: 22px;
+      max-width: 760px;
+    }
+
+    .install-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: #d9d9df;
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+    }
+
+    .terminal {
+      position: relative;
+      border-radius: 18px;
+      background: #070708;
+      border: 1px solid rgba(255,255,255,0.07);
+      padding: 18px 18px 18px 20px;
+      overflow-x: auto;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .terminal::before {
+      content: "";
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #ef4444;
+      box-shadow: 16px 0 0 #f59e0b, 32px 0 0 #22c55e;
+    }
+
+    code {
+      display: block;
+      padding-top: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.97rem;
+      color: #fafafa;
+      white-space: nowrap;
+    }
+
+    .copy-hint {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .preview-card {
+      position: relative;
+      border-radius: 28px;
+      padding: 18px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.03)),
+        rgba(255,255,255,0.02);
+      box-shadow: 0 30px 90px rgba(0,0,0,0.42);
+      min-height: 100%;
+    }
+
+    .window {
+      border-radius: 20px;
+      overflow: hidden;
+      background: #050506;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .window-top {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: rgba(255,255,255,0.03);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .dots {
+      display: flex;
+      gap: 7px;
+    }
+
+    .dots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.28);
+    }
+
+    .window-pill {
+      color: #9ca3af;
+      font-size: 0.82rem;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .window-body {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .mini-panel {
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+      padding: 16px;
+    }
+
+    .mini-title {
+      font-size: 0.76rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9ca3af;
+      margin-bottom: 10px;
+    }
+
+    .mini-main {
+      font-family: "Space Grotesk", Inter, sans-serif;
+      font-size: 1.25rem;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+    }
+
+    .stack {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .metric {
+      border-radius: 14px;
+      padding: 14px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.025);
+    }
+
+    .metric b {
+      display: block;
+      font-size: 1.35rem;
+      margin-bottom: 6px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.4;
+    }
+
+    .section {
+      padding: 26px 0;
+    }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.018));
+      padding: 24px;
+      min-height: 220px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 18px;
+      font-size: 1.1rem;
+      background: rgba(249,115,22,0.10);
+      border: 1px solid rgba(249,115,22,0.18);
+      color: #ffb37a;
+    }
+
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 1.15rem;
+      letter-spacing: -0.03em;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 0.98rem;
+    }
+
+    .strip {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tag {
+      padding: 8px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(255,255,255,0.03);
+      color: #d4d4d8;
+      font-size: 0.84rem;
+    }
+
+    .cta-panel {
+      margin: 34px 0 72px;
+      border-radius: 30px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background:
+        radial-gradient(circle at top right, rgba(249,115,22,0.12), transparent 34%),
+        linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+      padding: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .cta-panel h2 {
+      margin: 0 0 10px;
+      font-family: "Space Grotesk", Inter, sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      letter-spacing: -0.05em;
+    }
+
+    .cta-panel p {
+      margin: 0;
+      color: var(--muted);
+      max-width: 60ch;
+      line-height: 1.7;
+    }
+
+    footer {
+      padding: 0 0 42px;
+      color: #8d8d96;
+      font-size: 0.92rem;
+    }
+
+    .footer-row {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 20px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 980px) {
+      .hero-inner,
+      .section-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-inner { padding: 30px; }
+      .preview-card { min-height: auto; }
+      h1 { max-width: 12ch; }
+    }
+
+    @media (max-width: 640px) {
+      .container { width: min(var(--max), calc(100% - 20px)); }
+      .nav { padding: 14px 0; }
+      .hero { padding-top: 42px; }
+      .hero-inner { padding: 20px; }
+      .card, .cta-panel, .install-card { padding: 20px; }
+      .stack { grid-template-columns: 1fr; }
+      .cta-row, .nav-links { width: 100%; }
+      .button, .button-secondary { width: 100%; }
+      code { font-size: 0.88rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="container nav">
+      <a class="brand" href="#top" aria-label="Claws.so home">
+        <span class="brand-mark">C</span>
+        <span>Claws.so</span>
+      </a>
+      <nav class="nav-links">
+        <a class="nav-link" href="#features">Features</a>
+        <a class="nav-link" href="#install">Install</a>
+        <a class="button-secondary" href="https://github.com/" target="_blank" rel="noreferrer">GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container hero-shell">
+        <div class="hero-inner">
+          <div class="hero-copy">
+            <div class="eyebrow">
+              <span class="eyebrow-dot"></span>
+              Local-first agent OS for builders
+            </div>
+            <h1>Vibe code. Research. Ship from one claw.</h1>
+            <p>
+              <strong>Claws.so</strong> is a local-first agent OS that blends the speed of modern UI generators with Manus-style computer use and Perplexity-style research. It’s built to open files, use tools, browse, reason, and turn intent into working artifacts fast.
+            </p>
+
+            <div class="cta-row">
+              <a class="button" href="#install">Install locally</a>
+              <a class="button-secondary" href="https://github.com/" target="_blank" rel="noreferrer">View GitHub ↗</a>
+            </div>
+
+            <div class="install-card" id="install">
+              <div class="install-label">
+                <span>Main CTA — install Claws locally</span>
+                <span class="copy-hint">Copy into your terminal</span>
+              </div>
+              <div class="terminal">
+                <code>curl -fsSL https://claws.so/install.sh | bash</code>
+              </div>
+            </div>
+          </div>
+
+          <aside class="preview-card" aria-label="Claws interface preview">
+            <div class="window">
+              <div class="window-top">
+                <div class="dots"><span></span><span></span><span></span></div>
+                <div class="window-pill">agent session • local-first</div>
+              </div>
+              <div class="window-body">
+                <div class="mini-panel">
+                  <div class="mini-title">Active directive</div>
+                  <div class="mini-main">Create a premium landing page, research the market, save the result, and ship the file.</div>
+                </div>
+                <div class="stack">
+                  <div class="metric">
+                    <b>UI</b>
+                    <span>Single-file polished demos with strong typography and reliable previews.</span>
+                  </div>
+                  <div class="metric">
+                    <b>Research</b>
+                    <span>Web search, fetch, extraction, screenshots, summaries, and citations.</span>
+                  </div>
+                  <div class="metric">
+                    <b>Files</b>
+                    <span>Reads, writes, patches, and iterates in your local workspace.</span>
+                  </div>
+                  <div class="metric">
+                    <b>Tasks</b>
+                    <span>Tracks work, remembers findings, and follows through end to end.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-grid">
+          <article class="card">
+            <div class="card-icon">✦</div>
+            <h3>Built for vibe coding</h3>
+            <p>
+              Ask for a landing page, app screen, or component and get a working artifact — not a vague suggestion. Claws writes clean, previewable HTML and moves fast with taste.
+            </p>
+            <div class="strip">
+              <span class="tag">single-file demos</span>
+              <span class="tag">responsive</span>
+              <span class="tag">high-signal design</span>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-icon">⌘</div>
+            <h3>Research + computer use</h3>
+            <p>
+              Claws can search, fetch, extract, screenshot, navigate, click, type, and synthesize findings like an operator — all while staying grounded in the task at hand.
+            </p>
+            <div class="strip">
+              <span class="tag">web search</span>
+              <span class="tag">browser actions</span>
+              <span class="tag">citations</span>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="card-icon">▣</div>
+            <h3>Local-first by default</h3>
+            <p>
+              Your files are the source of truth. Claws works directly in your workspace, saves output where you expect it, and acts like an agent OS you can actually use daily.
+            </p>
+            <div class="strip">
+              <span class="tag">filesystem aware</span>
+              <span class="tag">task memory</span>
+              <span class="tag">agent workflows</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div class="cta-panel">
+          <div>
+            <h2>One prompt. Real output.</h2>
+            <p>
+              From polished landing pages to multi-step research runs, Claws is designed to feel immediate, capable, and sharp. It acknowledges, plans, executes, and leaves behind actual artifacts.
+            </p>
+          </div>
+          <div class="cta-row">
+            <a class="button" href="#install">Run the install command</a>
+            <a class="button-secondary" href="https://github.com/" target="_blank" rel="noreferrer">Open GitHub ↗</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-row">
+      <span>Claws.so — local-first agent OS for vibe coding, research, and computer use.</span>
+      <span>Designed for fast demos, deep workflows, and shipping.</span>
+    </div>
+  </footer>
+</body>
+</html>

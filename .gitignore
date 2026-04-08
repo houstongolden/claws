@@ -11,7 +11,14 @@ coverage
 
 # PGlite / runtime DB (local state)
 .claws/runtime/
+# Bootstrap stamp (local; regenerates after pnpm install)
+.claws/bootstrap-playwright.txt
 
 # Project context / prompts (generated or draft)
 project-context/prompts/prompt-ledger-dump2.md
 project-context/Claws-PRD-v0.01.md
+.vercel
+.env*.local
+.env.local.bak
+.env.*.bak
+.env.backup

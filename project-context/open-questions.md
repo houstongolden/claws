@@ -1,5 +1,7 @@
 # Open Questions (Deduped)
 
+**Last synced:** 2026-03 — product/policy items unchanged; runtime gaps below are historical (see feature-ledger).
+
 Sorted by implementation impact. Blocking items are marked clearly.
 
 ## Blocking
@@ -59,11 +61,6 @@ Sorted by implementation impact. Blocking items are marked clearly.
 - Identity layer uses `identity/you.md` bundle with approval-gated edits.
 - Browser/computer execution supports `background`, `record-on-complete`, `watch-live`, `hybrid`.
 
-## Implementation-Critical Gaps (Tracked, Not Open Questions)
+## Implementation-Critical Gaps (Historical)
 
-The following are missing files/work items found during audit and are tracked in `project-context/tasks.md`:
-- root monorepo bootstrap files
-- gateway runtime and HTTP server
-- dashboard app + API client wiring
-- shared/core/workspace/tool package implementations
-- deterministic `create-claws` scaffolder and template files
+Early audit gaps are **resolved** in repo. Current gaps are in `next-pass.md` (e.g. multi-agent delegation, proactive thread post, full cron parsing). Canonical feature state: `feature-ledger.md`.

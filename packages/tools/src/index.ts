@@ -4,6 +4,7 @@ import { createDemoTools } from "./demo";
 import { createFsTools } from "./fs";
 import { createMemoryTools } from "./memory";
 import { ToolRegistry } from "./registry";
+import { createResearchTools } from "./research";
 import { createSandboxTools } from "./sandbox";
 import { createTaskTools } from "./tasks";
 
@@ -20,14 +21,17 @@ export * from "./tasks-md";
 import type { ToolEnvironment } from "./registry";
 
 const TOOL_RISK_MAP: Record<string, "low" | "medium" | "high"> = {
-  "fs.write": "high",
-  "fs.append": "high",
+  /* Workspace file writes: no gate — vibe coding / demos. High-risk = tasks DB + sandbox. */
+  "fs.write": "medium",
+  "fs.append": "medium",
   "sandbox.exec": "high",
   "browser.navigate": "medium",
   "browser.screenshot": "low",
   "browser.click": "medium",
   "browser.type": "medium",
   "browser.extract": "low",
+  "research.fetchUrl": "medium",
+  "research.webSearch": "medium",
   "tasks.createTask": "high",
   "tasks.updateTask": "high",
   "tasks.moveTask": "high",
@@ -68,6 +72,7 @@ export function registerDefaultTools(registry: ToolRegistry, workspaceRoot: stri
     createBrowserTools(workspaceRoot),
     createSandboxTools(),
     createDemoTools(workspaceRoot),
+    createResearchTools(),
     {
       "status.get": async () => ({
         gateway: "online",

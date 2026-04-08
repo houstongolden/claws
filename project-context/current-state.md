@@ -1,4 +1,6 @@
-# Current State (Post-Session-First UX Pass)
+# Current State (Session-First + Vibe Coding + Operator UI)
+
+**Last updated:** 2026-03 — project-context sync with repo.
 
 ## What now exists
 
@@ -10,7 +12,7 @@
 - `class-variance-authority` for variant-based component styling
 - Lucide React icons in navigation and across all pages
 - **shadcn/ui-style component library**: Button, Input, Select, Textarea, Badge, Card, Dialog, Tabs
-- Zero inline styles remaining in dashboard
+- **Design passes (2026):** Apple/OpenAI-adjacent UI — glass headers, rounded-2xl panels, shared shadow tokens (`--shadow-sm/md/composer`), segmented **Tabs**, refined **Badge** / **StatusDot**, **Input/Select/Textarea** h-9 + rounded-xl, Home/Settings/Traces/Tasks/Projects/Workflows/Approvals/Memory/Files/Agents/Proactivity aligned; **Context panel** + **Approvals** grant buttons polished.
 
 ### AI SDK integration (streaming-capable)
 - `ai` v6 + `@ai-sdk/openai` + `@ai-sdk/provider` installed in gateway
@@ -24,7 +26,7 @@
 - Configurable model, gateway URL, and API keys via env vars
 
 ### Dashboard (session-first, all using shadcn/ui)
-- **Session (`/` and `/chat`)**: Shared AI-first workbench with streaming chat, typing cursor, tool result cards, session-persisted history, clear action, PRD-aligned prompt suggestions, and a live right-side context rail for current task/project/files/approvals/memory/traces/workflows
+- **Session (`/` and `/chat`)**: Shared AI-first workbench with streaming chat, typing cursor, **compact file cards** for `fs.write` / `fs.append` (filename only; opens artifact panel), **right artifact panel** (Code + HTML Preview + Open in browser), **sidebar auto-collapse** when artifact opens (vibe-coding layout), session-persisted history, clear action, suggested prompts, and a live **Context** rail (Overview / Project / Files / Approvals / Memory / Traces / Workflow). **Nav → Sessions**: starred + recent chats with select/resume; new chat from primary CTA.
 - **Tasks**: Canonical build queue parsed from `project-context/tasks.md` plus append-only activity view from `tasks.jsonl`
 - **Projects**: Filesystem-backed project list from `projects/` scan; browser-verified chat project creation works
 - **Approvals**: Approval cards with risk badges and grant actions
@@ -34,7 +36,7 @@
 - **Files**: Workspace browser backed by `fs.list`, file inspector via `fs.read`, and quick reads for canonical docs
 - **Memory**: Interactive memory search, session checkpoint flush, and promote actions for store-backed entries
 - **Agents**: Agent roster, routing model, tool environments, and clearer multi-agent orchestration framing
-- **Shell**: Tenant-aware with tenant name in header/sidebar plus expanded-view banner on non-session routes
+- **Shell**: Top bar on expanded routes: **Open CLI** (TUI / CLI chat / status), gateway status pill, **cloud sync** indicator, **update available** badge, **custom dashboard** badge when applicable; glass-bar styling. **SidebarContext**: collapsed state persisted (localStorage); artifact open can collapse nav for width.
 - **Nav**: Session-first rail with active view state, recent projects, context views, and runtime surfaces
 
 ### Workflow system (persistent + API + Vercel adapter)
@@ -101,6 +103,13 @@
 ### Enriched status endpoint
 - `/api/status` returns: gateway state, workspace root, registered tools, agents (with descriptions and modes), AI config (enabled, streaming, model, gateway URL), workflow stats, tenant info, approval/trace counts, and execution substrate state
 
+### Gateway runtime DB resilience
+- **PGlite persistent path:** `.claws/runtime/` (dataDir) — preferred; full durability across restarts.
+- **In-memory fallback:** If `initRuntimeDb({ dataDir })` fails (e.g. WASM `Aborted()` on some Node/OS combos), gateway calls **`initRuntimeDbInMemory()`** and continues; logs a warning. **Data does not persist** across restarts in that mode. Redeploy/fix: clear `.claws/runtime`, try another Node version, or upgrade `@electric-sql/pglite` when available.
+
+### AI file-creation discipline
+- **System prompt** (`apps/gateway/src/aiHandler.ts`): model instructed to use **`fs.write`** for files, **not** paste full file bodies into chat; short confirmation only after write.
+
 ### Testing
 - `packages/harness/src/smoke.js`: API smoke tests
 - `packages/harness/src/security.js`: Path governance and approval tests
@@ -118,8 +127,8 @@ pnpm dev        # starts gateway (4317), dashboard (4318), worker
 ## What still needs implementation
 
 1. **Cross-screen live updates**: ~~Toast/live-refresh~~ — **Done:** claws:refresh-context event on chat mutation; Projects and Tasks refetch.
-2. **Mobile session adaptation**: Preserve the new session/context-rail model on smaller screens
-3. **Session list/resume UI**: Optional for v0; server-side transcript persist on stream complete is done (onComplete → persistSessionHistory in apps/gateway/src/main.ts)
+2. **Mobile session adaptation**: Context drawer exists; further polish for artifact panel + composer on small screens
+3. ~~**Session list/resume UI**~~ — **Done:** Nav **Sessions** section (starred + list), select chat resumes session; `chat-list-context` + `ensureChatInList`.
 4. **Full Agent Browser SDK wiring**: When `@anthropic-ai/agent-browser` is installed
 5. **Full Vercel Sandbox / Workflow SDK wiring**: When hosted adapters are available
 6. ~~**FOLDER.md governance**~~: **Done** — loadFolderContractSync + parseFolderMd in packages/workspace/src/folder-md.ts; WorkspaceFS uses it.
@@ -132,11 +141,11 @@ pnpm dev        # starts gateway (4317), dashboard (4318), worker
 
 ## System readiness score (0–100%)
 
-**~78%** — Based on PRD completeness.
+**~85%** — Based on PRD completeness.
 
-- **Delivered:** Workspace scaffold, gateway, dashboard, session workbench, chat streaming (streaming path persists assistant reply after stream complete), approvals, traces, workflows, PGlite persistence, conversations/channels, intelligence, proactivity (schema + API + UI + slash + on-demand + decision engine + cron/interval scheduler — 30s poll in gateway), browser (Playwright), execution substrates visibility, multi-tenant scaffold, **FOLDER.md load and enforce** (folder-md.ts), **project drill-in** (/projects/[slug]), **toast/live updates** (claws:refresh-context for Projects/Tasks), operator-grade CLI, TUI, create-claws bootstrap, harness tests.
-- **Partial:** Session persistence (transcript persist on stream complete done; session list/resume UI optional), view lens (not applied to queries), streaming (tool events streamed from gateway; dashboard consumption to be verified), Agent Browser (adapter only), multi-tenant (in-memory).
-- **Missing:** create workflow from UI (done), view lens (done), workflow substrate routing (done), demo artifact link (done), Agent Browser execution (done), Vercel Sandbox (done), mobile sidecar (done) — all implemented. Remaining: session list/resume UI, streaming incremental tool UI, real multi-agent delegation.
+- **Delivered:** Everything previously at ~78%, plus **session list + resume** (nav), **vibe coding UI** (file cards, artifact panel, preview, open in browser, sidebar collapse), **streaming tool UI** (file cards during stream + on complete), **PGlite in-memory fallback** (gateway still starts), **design system alignment** across dashboard, **AI prompt** for fs.write-only file creation in chat.
+- **Partial:** PGlite persistent mode on all hosts (fallback used when WASM/dataDir fails); multi-tenant still in-memory scaffold; Agent Browser optional SDK.
+- **Remaining polish / roadmap:** Real multi-agent delegation UX, proactive messages into conversation thread, heartbeat runners, optional full cron parsing for jobs.
 
 See `project-context/feature-ledger.md` and `project-context/IMPLEMENTATION_AUDIT.md` for full reconciliation.
 
@@ -144,10 +153,10 @@ See `project-context/feature-ledger.md` and `project-context/IMPLEMENTATION_AUDI
 
 ## Critical missing capabilities
 
-1. Session list/resume UI — **Optional for v0**; server-side transcript persist on stream complete is done.
+1. ~~Session list/resume UI~~ — **Done** (nav Sessions).
 2. ~~FOLDER.md as source of truth~~ — **Done:** loadFolderContractSync + parseFolderMd in folder-md.ts; WorkspaceFS uses it.
 3. ~~Tasks.md write path~~ — **Done:** create/update/move/complete from UI and gateway.
-4. Streaming tool-call events in SSE (incremental tool UI)
+4. ~~Streaming tool-call events / incremental tool UI~~ — **Done** (file cards + artifact panel; stream + complete).
 5. Agent Browser real execution path
 6. ~~Project drill-in~~ — **Done:** /projects/[slug] with project.md and tasks.md.
 7. ~~Memory → MEMORY.md (approval-gated proposal)~~ — **Done:** createMemoryProposal + resolveApproval in gateway.

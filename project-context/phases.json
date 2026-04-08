@@ -1,0 +1,102 @@
+{
+  "updated": "2026-04-08",
+  "currentTurn": "autonomous phase runner (B-G)",
+  "phases": [
+    {
+      "id": "A",
+      "name": "Salvage from hubify",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "packages/sdk (builds)",
+        "apps/studio (legacy moved to _legacy/)",
+        "packages/backend-convex (salvaged, needs wiring)",
+        "infra/ (125 files)",
+        "docs/claws + docs/integrations",
+        "project-context/CLAWS_EXTRACTION_ARCHITECTURE.md",
+        "project-context/PRDv2-2026-04-08.md",
+        "project-context/PHASE-A-SALVAGE-NOTES.md"
+      ]
+    },
+    {
+      "id": "B",
+      "name": "Rebuild landing page narrative",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "apps/web/app/page.tsx (new dual positioning hero)",
+        "apps/web/app/layout.tsx (new metadata)",
+        "README.md (dual pillar intro)",
+        "claws-landing.vercel.app (redeployed)"
+      ]
+    },
+    {
+      "id": "D",
+      "name": "Clone claw-code reference",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "~/Desktop/CODE_2025/forks/claw-code-ultraworkers (15MB, 9 Rust crates)",
+        "project-context/PHASE-D-CLAW-CODE-REFERENCE.md (porting plan)"
+      ],
+      "notes": "Nuos/ai-instructkr-claw-code repo is disabled by owner — cannot clone"
+    },
+    {
+      "id": "C",
+      "name": "Cursor-tight UI pass",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "apps/dashboard/app/globals.css (red accent + mission control density + agent dots)",
+        "DESIGN.md v1 values applied as non-invasive overrides"
+      ]
+    },
+    {
+      "id": "F",
+      "name": "Hourly QA audit cron",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "scripts/qa-audit.sh",
+        "scripts/phase-watchdog.sh",
+        "scripts/com.claws.watchdog.plist",
+        "~/Library/LaunchAgents/com.claws.watchdog.plist (installed)",
+        "launchctl job: com.claws.watchdog (runs every 900s)"
+      ]
+    },
+    {
+      "id": "E",
+      "name": "Studio Next.js shell + SDK proof",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "apps/studio/app/page.tsx (imports from @claws/sdk, builds)",
+        "apps/studio/app/layout.tsx",
+        "apps/studio/app/globals.css",
+        "apps/studio/next.config.ts",
+        "apps/studio/tsconfig.json",
+        "apps/studio/postcss.config.mjs",
+        "apps/studio/_legacy/ (hubify files preserved for later)"
+      ],
+      "notes": "Partial — StudioLayout integration deferred pending backend decision"
+    },
+    {
+      "id": "G",
+      "name": "Fly.io infra test",
+      "status": "deferred",
+      "reason": "Requires Fly.io account credits and explicit user greenlight. Infra files are salvaged in infra/ but not yet built/deployed."
+    },
+    {
+      "id": "E2",
+      "name": "Studio full wiring (StudioLayout + backend)",
+      "status": "pending",
+      "reason": "Needs backend decision (Convex vs HTTP/SQLite). See PHASE-A-SALVAGE-NOTES.md"
+    },
+    {
+      "id": "D2",
+      "name": "Port claw-code patterns to experimental OS",
+      "status": "pending",
+      "reason": "P1 patterns: JSONL sessions, permission modes, worker boot. See PHASE-D-CLAW-CODE-REFERENCE.md"
+    }
+  ]
+}

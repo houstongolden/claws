@@ -295,13 +295,13 @@ export default function ProjectSlugPage({ params }: { params: Promise<{ slug: st
           </div>
 
           {error ? (
-            <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+            <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">
               {error}
             </div>
           ) : null}
 
           {/* Canonical files */}
-          <section className="rounded-lg border border-border bg-surface-1 overflow-hidden">
+          <section className="rounded-2xl border border-border/80 bg-surface-1 overflow-hidden shadow-[var(--shadow-sm)]">
             <div className="border-b border-border bg-surface-2 px-4 py-2.5 text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
               Canonical files
             </div>
@@ -316,7 +316,7 @@ export default function ProjectSlugPage({ params }: { params: Promise<{ slug: st
                     Loading…
                   </div>
                 ) : (
-                  <pre className="rounded-md border border-border bg-background p-3 text-[12px] text-muted-foreground whitespace-pre-wrap font-[family-name:var(--font-geist-mono)] max-h-[280px] overflow-y-auto">
+                  <pre className="rounded-xl border border-border/80 bg-code-bg/50 p-4 text-[12px] text-muted-foreground whitespace-pre-wrap font-[family-name:var(--font-geist-mono)] max-h-[280px] overflow-y-auto shadow-[var(--shadow-sm)]">
                     {projectMd ?? "(empty)"}
                   </pre>
                 )}
@@ -337,7 +337,7 @@ export default function ProjectSlugPage({ params }: { params: Promise<{ slug: st
                       Loading…
                     </div>
                   ) : (
-                    <pre className="rounded-md border border-border bg-background p-3 text-[12px] text-muted-foreground whitespace-pre-wrap font-[family-name:var(--font-geist-mono)] max-h-[240px] overflow-y-auto">
+                    <pre className="rounded-xl border border-border/80 bg-code-bg/50 p-4 text-[12px] text-muted-foreground whitespace-pre-wrap font-[family-name:var(--font-geist-mono)] max-h-[240px] overflow-y-auto shadow-[var(--shadow-sm)]">
                       {tasksMd ?? "(empty)"}
                     </pre>
                   )}
@@ -347,7 +347,7 @@ export default function ProjectSlugPage({ params }: { params: Promise<{ slug: st
           </section>
 
           {/* Related traces */}
-          <section className="rounded-lg border border-border bg-surface-1 overflow-hidden">
+          <section className="rounded-2xl border border-border/80 bg-surface-1 overflow-hidden shadow-[var(--shadow-sm)]">
             <div className="border-b border-border bg-surface-2 px-4 py-2.5 flex items-center justify-between">
               <span className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
                 Related traces
@@ -391,7 +391,7 @@ export default function ProjectSlugPage({ params }: { params: Promise<{ slug: st
           </section>
 
           {/* Related task events */}
-          <section className="rounded-lg border border-border bg-surface-1 overflow-hidden">
+          <section className="rounded-2xl border border-border/80 bg-surface-1 overflow-hidden shadow-[var(--shadow-sm)]">
             <div className="border-b border-border bg-surface-2 px-4 py-2.5 flex items-center justify-between">
               <span className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
                 Task activity
@@ -434,7 +434,7 @@ export default function ProjectSlugPage({ params }: { params: Promise<{ slug: st
           </section>
 
           {/* Related memory */}
-          <section className="rounded-lg border border-border bg-surface-1 overflow-hidden">
+          <section className="rounded-2xl border border-border/80 bg-surface-1 overflow-hidden shadow-[var(--shadow-sm)]">
             <div className="border-b border-border bg-surface-2 px-4 py-2.5 flex items-center justify-between">
               <span className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
                 Related memory
@@ -475,7 +475,7 @@ export default function ProjectSlugPage({ params }: { params: Promise<{ slug: st
 
           {/* Related approvals */}
           {approvals.length > 0 ? (
-            <section className="rounded-lg border border-border bg-surface-1 overflow-hidden">
+            <section className="rounded-2xl border border-border/80 bg-surface-1 overflow-hidden shadow-[var(--shadow-sm)]">
               <div className="border-b border-border bg-surface-2 px-4 py-2.5 flex items-center justify-between">
                 <span className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
                   Pending approvals (this project)
@@ -506,7 +506,7 @@ export default function ProjectSlugPage({ params }: { params: Promise<{ slug: st
             </section>
           ) : null}
 
-          <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground">
+          <div className="rounded-2xl border border-border/80 bg-muted/15 p-5 text-[13px] text-muted-foreground leading-relaxed shadow-[var(--shadow-sm)]">
             This view is grounded in workspace files: <InlineCode>project.md</InlineCode> and{" "}
             <InlineCode>tasks.md</InlineCode> under <InlineCode>{project.path}</InlineCode>. Traces, task events, and
             memory are filtered by project path or name.

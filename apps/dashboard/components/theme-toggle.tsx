@@ -56,7 +56,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         type="button"
         variant="ghost"
         size="sm"
-        className={cn("h-8 w-8 p-0 text-sidebar-foreground", className)}
+        className={cn("h-9 w-9 p-0 rounded-[10px] text-sidebar-foreground", className)}
         aria-label="Theme"
       >
         <Monitor size={14} />
@@ -74,7 +74,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       variant="ghost"
       size="sm"
       onClick={cycle}
-      className={cn("h-8 w-8 p-0 text-sidebar-foreground hover:text-sidebar-active", className)}
+      className={cn("h-9 w-9 p-0 rounded-[10px] text-sidebar-foreground hover:text-sidebar-active hover:bg-sidebar-hover", className)}
       aria-label={`Theme: ${theme} (${effective})`}
       title={`Theme: ${theme} · Click for ${theme === "light" ? "dark" : theme === "dark" ? "system" : "light"}`}
     >

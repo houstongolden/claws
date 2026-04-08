@@ -1,0 +1,223 @@
+---
+title: 'Claws Framework'
+description: 'The official frontend framework for building OpenClaw dashboard experiences'
+icon: 'paintbrush'
+---
+
+# Claws — Frontend Framework for OpenClaw
+
+**Claws** is Hubify's official frontend framework for building mission control dashboards, workspace UIs, and interactive experiences on top of [OpenClaw](https://openclaw.dev) — the agentic operating system.
+
+Think of it as **the UI layer for your AI OS**. If OpenClaw is the brain, Claws is the face.
+
+## What is Claws?
+
+Claws gives you everything you need to build a polished, real-time dashboard that connects to your OpenClaw workspace:
+
+- **React hooks** for chat, files, skills, memory, crons, and more
+- **WebSocket client** for real-time streaming from the OpenClaw Gateway
+- **Pre-built components** for common dashboard patterns (nav rails, panels, status bars)
+- **Theme system** with 10 built-in themes and custom accent colors
+- **Template system** for packaging and sharing complete workspace UIs
+- **Claws Studio** — a visual builder for designing dashboard layouts with AI assistance
+
+<Note>
+Claws is a **Hubify Labs** release. It's production-ready for Hubify workspaces and is the same framework powering every `yourname.hubify.com` dashboard.
+</Note>
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────┐
+│                 Your Dashboard               │
+│  (Claws components + your custom UI)         │
+├─────────────────────────────────────────────┤
+│              @claws/sdk/react                │
+│  17 hooks: useChat, useFiles, useSkills...   │
+├─────────────────────────────────────────────┤
+│              @claws/sdk (core)               │
+│  GatewayClient, WebSocket, Protocol v3       │
+├─────────────────────────────────────────────┤
+│           OpenClaw Gateway (v3)              │
+│  Agent runtime, file system, crons, memory   │
+└─────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+<Steps>
+  <Step title="Install the SDK">
+    ```bash
+    npm install @claws/sdk
+    ```
+  </Step>
+  <Step title="Wrap your app">
+    ```tsx
+    import { GatewayProvider } from '@claws/sdk/react';
+
+    function App() {
+      return (
+        <GatewayProvider gatewayUrl="wss://yourname.hubify.com/">
+          <Dashboard />
+        </GatewayProvider>
+      );
+    }
+    ```
+  </Step>
+  <Step title="Use hooks">
+    ```tsx
+    import { useChatSession, useWorkspaceFiles } from '@claws/sdk/react';
+
+    function Dashboard() {
+      const { send, messages } = useChatSession();
+      const { files } = useWorkspaceFiles('/');
+
+      return (
+        <div>
+          {messages.map(msg => <div key={msg.id}>{msg.content}</div>)}
+          <button onClick={() => send('Give me a status update')}>
+            Ask Agent
+          </button>
+        </div>
+      );
+    }
+    ```
+  </Step>
+</Steps>
+
+## Core Concepts
+
+### Templates
+
+A Claws template defines the complete look and behavior of a workspace dashboard:
+
+- **Theme** — colors, fonts, accent color, dark/light mode
+- **Layout** — which panels are visible, their sizes and positions (12-column grid)
+- **Agent config** — name, greeting, personality (SOUL.md), voice settings
+- **Skills** — which skills are pre-installed
+- **Nav structure** — sidebar navigation items and grouping
+
+Templates are shareable. You can publish them to the Hubify template gallery, fork others' templates, or keep them private.
+
+### Themes
+
+Claws ships with 10 built-in themes:
+
+| Theme | Description |
+|-------|-------------|
+| **Dark** | Default dark theme with neutral tones |
+| **Light** | Clean light mode |
+| **Midnight** | Deep blue-black for late-night work |
+| **Synthwave** | Retro neon vibes |
+| **Solarized** | Ethan Schoonover's classic palette |
+| **Nord** | Arctic-inspired cool tones |
+| **Dracula** | The popular dark theme |
+| **Catppuccin** | Pastel-flavored dark theme |
+| **Terminal** | Monochrome hacker aesthetic |
+| **Paper** | Warm, paper-like light theme |
+
+Each theme can be combined with any accent color. The accent color flows through nav highlights, buttons, badges, and interactive elements.
+
+### Panels
+
+Panels are the building blocks of a Claws dashboard. Each panel type renders a specific view:
+
+| Panel | Type | Description |
+|-------|------|-------------|
+| Chat | `chat` | Real-time chat with your agent |
+| Terminal | `terminal` | Shell access to the workspace |
+| Activity Feed | `activity` | Live stream of agent actions |
+| Files | `files` | Workspace file browser |
+| Memory | `memory` | Agent memory entries |
+| Skills | `skills` | Installed skills with execution logs |
+| Crons | `crons` | Scheduled job status and logs |
+| Analytics | `analytics` | Token usage, latency, and cost |
+
+Panels are arranged in a 12-column grid. Each panel has a size (`sm`=4col, `md`=6col, `lg`=8col, `full`=12col) and a position.
+
+## Claws Studio
+
+The **Claws Studio** is a visual builder at [hubify.com/studio](https://hubify.com/studio) where you can:
+
+1. **Vibe-code** your dashboard by describing what you want in natural language
+2. **Preview** your template in real-time (phone, tablet, desktop)
+3. **Import** templates from your active workspaces to edit them
+4. **Deploy** directly to your live workspace
+5. **Share** and **publish** templates to the community
+
+### Import from Workspace
+
+Already have a live workspace? Import its current template into Studio to iterate on it without affecting the live deployment:
+
+1. Go to [hubify.com/studio](https://hubify.com/studio)
+2. Click your workspace under "Edit Active Workspace"
+3. Make changes in Studio (preview updates in real-time)
+4. When satisfied, click **Deploy** → **Apply to Existing** to push changes live
+
+## React Hooks
+
+All hooks are imported from `@claws/sdk/react` and require `GatewayProvider` as an ancestor.
+
+<CardGroup cols={2}>
+  <Card title="useChatSession" icon="message">
+    Send messages, stream responses, manage chat history with the agent.
+  </Card>
+  <Card title="useWorkspaceFiles" icon="folder">
+    Read, write, list, and watch files in the workspace filesystem.
+  </Card>
+  <Card title="useSkills" icon="bolt">
+    List installed skills, trigger executions, view run logs.
+  </Card>
+  <Card title="useCronJobs" icon="clock">
+    List, create, update, and delete scheduled cron jobs.
+  </Card>
+  <Card title="useNodes" icon="server">
+    List workspace nodes, their status, and metadata.
+  </Card>
+  <Card title="usePresence" icon="users">
+    Track connected devices and users in real-time.
+  </Card>
+  <Card title="useToolsInvoke" icon="wrench">
+    Invoke tools by name with typed arguments.
+  </Card>
+  <Card title="useConfig" icon="gear">
+    Read and write workspace configuration values.
+  </Card>
+</CardGroup>
+
+For the complete hooks API reference, see the [Claws SDK Reference](/integrations/claws-sdk).
+
+## Self-Customizing Agents
+
+One of the most powerful Claws features: **agents can customize their own dashboard**.
+
+Every Hubify workspace exposes a `GET /self` endpoint that returns the agent's identity, capabilities, and available APIs. Agents can call `POST /template-view` to change their dashboard appearance — accent color, agent name, nav items — autonomously.
+
+```bash
+# Agent sees itself
+curl http://127.0.0.1:4000/self
+
+# Agent customizes its dashboard
+curl -X POST http://127.0.0.1:4000/template-view \
+  -H 'Content-Type: application/json' \
+  -d '{"agentName":"Atlas","accent":"#60A5FA","navAppend":[{"id":"research","label":"Research","icon":"search"}]}'
+```
+
+This is taught in every workspace's `SOUL.md` — agents know they can do this out of the box.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Claws SDK Reference" icon="code" href="/integrations/claws-sdk">
+    Full API reference for all 17 hooks and core modules
+  </Card>
+  <Card title="Open Studio" icon="paintbrush" href="https://hubify.com/studio">
+    Start building your dashboard now
+  </Card>
+  <Card title="Template Gallery" icon="grid" href="https://hubify.com/templates">
+    Browse community templates for inspiration
+  </Card>
+  <Card title="OpenClaw Docs" icon="robot" href="/integrations/openclaw">
+    Learn about the agent runtime powering your workspace
+  </Card>
+</CardGroup>

@@ -5,6 +5,14 @@
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./approvals": "./src/approvals.ts",
+    "./router": "./src/router.ts",
+    "./runner": "./src/runner.ts",
+    "./workflow": "./src/workflow.ts",
+    "./workflow-vercel": "./src/workflow-vercel.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

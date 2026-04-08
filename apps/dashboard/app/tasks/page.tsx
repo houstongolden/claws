@@ -336,7 +336,7 @@ export default function TasksPage() {
       />
       <PageContent>
         <div className="max-w-3xl space-y-4">
-          <div className="rounded-lg border border-border bg-surface-1 p-4">
+          <div className="rounded-2xl border border-border/80 bg-surface-1 p-5 shadow-[var(--shadow-sm)]">
             <div className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground mb-2">
               Append task event
             </div>
@@ -375,7 +375,7 @@ export default function TasksPage() {
             </form>
           </div>
 
-          <div className="rounded-lg border border-border bg-surface-1 p-4">
+          <div className="rounded-2xl border border-border/80 bg-surface-1 p-5 shadow-[var(--shadow-sm)]">
             <div className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground mb-2">
               Create task (updates project-context/tasks.md)
             </div>
@@ -502,7 +502,7 @@ export default function TasksPage() {
             ) : null}
 
             {error ? (
-              <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2 mt-4">
+              <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 mt-4 shadow-[var(--shadow-sm)]">
                 {error}
               </div>
             ) : null}
@@ -529,7 +529,7 @@ export default function TasksPage() {
                 <div className="space-y-4">
                   <div className="grid gap-3 sm:grid-cols-4">
                     {["todo", "in-progress", "blocked", "done"].map((status) => (
-                      <div key={status} className="rounded-lg border border-border bg-surface-1 p-3">
+                      <div key={status} className="rounded-2xl border border-border/80 bg-surface-1 p-4 shadow-[var(--shadow-sm)]">
                         <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
                           {status}
                         </div>
@@ -541,7 +541,7 @@ export default function TasksPage() {
                   </div>
 
                   {[...queueGroups, ...otherQueueGroups].map((status) => (
-                    <div key={status} className="rounded-lg border border-border bg-surface-1 overflow-hidden">
+                    <div key={status} className="rounded-2xl border border-border/80 bg-surface-1 overflow-hidden shadow-[var(--shadow-sm)]">
                       <div className="flex items-center justify-between border-b border-border bg-surface-2 px-4 py-2.5">
                         <div className="text-[12px] font-medium uppercase tracking-widest text-muted-foreground">
                           {status}
@@ -680,7 +680,7 @@ export default function TasksPage() {
 
                 <TabsContent value={eventTab}>
                   {filteredEvents.length > 0 ? (
-                    <div className="rounded-lg border border-border bg-surface-1 divide-y divide-border overflow-hidden">
+                    <div className="rounded-2xl border border-border/80 bg-surface-1 divide-y divide-border/80 overflow-hidden shadow-[var(--shadow-sm)]">
                       {filteredEvents.map((ev, i) => {
                         const label = eventLabel(ev);
                         const note = eventNote(ev);

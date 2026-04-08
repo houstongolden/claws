@@ -70,7 +70,7 @@ export default function ProjectsPage() {
       <PageContent>
         <div className="max-w-3xl space-y-4">
           {projects.length > 0 ? (
-            <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground">
+            <div className="rounded-2xl border border-border/80 bg-muted/15 p-5 text-[13px] text-muted-foreground leading-relaxed shadow-[var(--shadow-sm)]">
               Projects are workspace folders under <InlineCode>projects/</InlineCode>. Each folder can contain{" "}
               <InlineCode>project.md</InlineCode> (name, summary, status) and <InlineCode>tasks.md</InlineCode> (task
               list). Create a project from Chat with a clear name so the folder and files reflect intent.
@@ -85,7 +85,7 @@ export default function ProjectsPage() {
           ) : null}
 
           {error ? (
-            <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+            <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">
               {error}
             </div>
           ) : null}
@@ -107,12 +107,12 @@ export default function ProjectsPage() {
           ) : null}
 
           {projects.length > 0 ? (
-            <div className="rounded-lg border border-border bg-surface-1 divide-y divide-border overflow-hidden">
+            <div className="rounded-2xl border border-border/80 bg-surface-1 divide-y divide-border/80 overflow-hidden shadow-[var(--shadow-sm)]">
               {projects.map((project) => (
                 <Link
                   key={project.slug}
                   href={`/projects/${encodeURIComponent(project.slug)}`}
-                  className="flex items-stretch px-4 py-3.5 text-left hover:bg-surface-2/50 transition-colors duration-150 no-underline min-w-0 block"
+                  className="flex items-stretch px-4 py-4 text-left hover:bg-muted/25 motion-safe:transition-colors no-underline min-w-0 block focus-visible:bg-muted/25"
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-3">
@@ -163,7 +163,7 @@ export default function ProjectsPage() {
           ) : null}
 
           {projects.length > 0 && !loading ? (
-            <div className="rounded-lg border border-border bg-surface-1 p-4 text-[13px] text-muted-foreground">
+            <div className="rounded-2xl border border-border/80 bg-muted/15 p-5 text-[13px] text-muted-foreground leading-relaxed shadow-[var(--shadow-sm)]">
               Projects are scanned from the <InlineCode>projects/</InlineCode> directory
               in your workspace. Each project should contain a{" "}
               <InlineCode>project.md</InlineCode> (name, summary, status) and{" "}

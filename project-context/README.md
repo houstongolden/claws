@@ -1,5 +1,7 @@
 # Project context — where to document what
 
+**Last synced:** 2026-03 — matches session list, artifact/vibe UI, PGlite fallback, proactivity scheduler, FOLDER.md enforcement.
+
 This directory holds the canonical planning and feature state for Claws. Coding agents and contributors should use these files as the source of truth.
 
 | File | Purpose |

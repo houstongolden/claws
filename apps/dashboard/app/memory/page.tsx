@@ -198,18 +198,18 @@ export default function MemoryPage() {
 
             <TabsContent value="search">
               <div className="space-y-4">
-                <div className="rounded-lg border border-border bg-surface-1 p-4">
-                  <form onSubmit={search} className="flex gap-2">
-                    <div className="relative flex-1">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-md)] p-5">
+                  <form onSubmit={search} className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1 min-w-0">
                       <Search
-                        size={13}
-                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground"
+                        size={15}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/70"
                       />
                       <Input
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         placeholder="Search workspace files and memory store..."
-                        className="pl-8"
+                        className="pl-10"
                         disabled={loading}
                       />
                     </div>
@@ -225,13 +225,13 @@ export default function MemoryPage() {
                 </div>
 
                 {error ? (
-                  <div className="text-[13px] text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+                  <div className="text-[13px] text-destructive bg-destructive/[0.07] border border-destructive/15 rounded-2xl px-4 py-3 shadow-[var(--shadow-sm)]">
                     {error}
                   </div>
                 ) : null}
 
                 {proposeSuccess ? (
-                  <div className="text-[13px] bg-success/10 border border-success/30 text-foreground rounded-lg px-3 py-2 flex items-center gap-2 flex-wrap">
+                  <div className="text-[13px] bg-success/[0.08] border border-success/25 text-foreground rounded-2xl px-4 py-3 flex items-center gap-2 flex-wrap shadow-[var(--shadow-sm)]">
                     <ShieldCheck size={14} />
                     Proposal created. Resolve in Approvals to append to <InlineCode>prompt/MEMORY.md</InlineCode>.
                     <Link href="/approvals">
@@ -253,7 +253,7 @@ export default function MemoryPage() {
                     <div className="text-[12px] text-muted-foreground">
                       {searchResult?.note}
                     </div>
-                    <div className="rounded-lg border border-border bg-surface-1 divide-y divide-border overflow-hidden">
+                    <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                       {results.map((entry, idx) => (
                         <div key={`${entry.path}-${idx}`} className="px-4 py-3">
                           <div className="flex items-center justify-between mb-1.5">
@@ -377,7 +377,7 @@ export default function MemoryPage() {
                     }
                   />
                 ) : (
-                  <div className="rounded-lg border border-border bg-surface-1 divide-y divide-border overflow-hidden">
+                  <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                     {pendingProposals.map((p) => (
                       <div key={p.id} className="px-4 py-3">
                         <div className="flex items-center justify-between gap-2 mb-1.5">
@@ -421,7 +421,7 @@ export default function MemoryPage() {
                     description="Memory events appear here when flush, promote, or search operations run through the gateway."
                   />
                 ) : (
-                  <div className="rounded-lg border border-border bg-surface-1 divide-y divide-border overflow-hidden">
+                  <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] divide-y divide-border overflow-hidden">
                     {recentMemoryTraces.map((t) => (
                       <div key={t.id} className="px-4 py-3">
                         <div className="flex items-center justify-between mb-1">
@@ -446,7 +446,7 @@ export default function MemoryPage() {
 
             <TabsContent value="about">
               <div className="space-y-3">
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="text-[13px] font-medium">Memory Layers</div>
                   <div className="space-y-2 text-[13px] text-muted-foreground">
                     <div className="flex items-start gap-2">
@@ -476,7 +476,7 @@ export default function MemoryPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border bg-surface-1 p-4 space-y-3">
+                <div className="rounded-2xl border border-border/80 bg-surface-1 shadow-[var(--shadow-sm)] p-4 space-y-3">
                   <div className="text-[13px] font-medium">Operations</div>
                   <div className="space-y-2 text-[13px] text-muted-foreground">
                     <div className="flex items-center gap-2">

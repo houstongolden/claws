@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo lint gateway",
-    "test": "echo test gateway",
+    "test": "node --import tsx --test src/aiHandler.test.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -23,7 +23,8 @@
     "@claws/tools": "workspace:*",
     "@claws/workspace": "workspace:*",
     "ai": "^6.0.116",
-    "dotenv": "^17.3.1",
+    "dotenv": "^16.4.7",
+    "playwright": "^1.49.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {

@@ -1,0 +1,23 @@
+# Template — set HUBIFY_USERNAME env at deploy time
+# fly machine run ... --env HUBIFY_USERNAME=yourname
+app = "hubify-workspaces"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[mounts]
+  source = "hubify_workspace_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

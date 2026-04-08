@@ -16,7 +16,6 @@ import {
   Bot,
   ChevronRight,
   MessageSquare,
-  Sparkles,
 } from "lucide-react";
 import { Shell } from "../../components/shell";
 import { HomeErrorBoundary } from "../../components/home-error-boundary";
@@ -79,44 +78,46 @@ function HomeContent() {
   };
 
   return (
-    <div className="flex flex-1 flex-col min-h-0 w-full">
-        {/* Hero: Pulse / Notion style */}
-        <div className="shrink-0 border-b border-border bg-gradient-to-b from-surface-1/60 to-background px-6 py-8 md:py-10">
+    <div className="flex flex-1 flex-col min-h-0 w-full session-canvas">
+        {/* Hero */}
+        <div className="shrink-0 border-b border-border/60 glass-bar px-6 py-12 md:py-16">
           <div className="max-w-2xl">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Sparkles size={14} strokeWidth={1.8} />
-              <span className="text-[12px] font-medium uppercase tracking-wider">Home</span>
+            <div className="flex items-center gap-2.5 text-muted-foreground mb-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border bg-muted/50 text-foreground shadow-sm">
+                <MessageSquare size={16} strokeWidth={2} />
+              </span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">Home</span>
             </div>
-            <h1 className="text-2xl md:text-3xl font-semibold text-foreground tracking-tight">
+            <h1 className="text-[clamp(1.65rem,4.5vw,2.25rem)] font-semibold text-foreground tracking-tight leading-[1.15] text-balance">
               What do you want to work on?
             </h1>
-            <p className="mt-2 text-[14px] text-muted-foreground max-w-lg">
-              Start a new chat, pick up a recent session, or jump into Tasks, Projects, or Memory.
+            <p className="mt-4 text-[15px] text-muted-foreground max-w-lg leading-relaxed font-[450] text-pretty">
+              Start a chat, resume a session, or jump into Tasks, Projects, and Memory.
             </p>
-            <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className="mt-8 flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={handleNewChat}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium",
-                  "bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                  "inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[13px] font-semibold shadow-[var(--shadow-sm)]",
+                  "bg-primary text-primary-foreground hover:opacity-90 active:scale-[0.99] motion-safe:transition-all"
                 )}
               >
-                <MessageSquarePlus size={16} strokeWidth={1.8} />
+                <MessageSquarePlus size={17} strokeWidth={1.8} />
                 New chat
               </button>
               <Link
                 href="/tasks"
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium border border-border bg-background hover:bg-surface-1 text-foreground no-underline transition-colors"
+                className="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[13px] font-medium border border-border/80 bg-surface-1 hover:bg-muted/40 hover:border-border text-foreground no-underline motion-safe:transition-all shadow-[var(--shadow-sm)]"
               >
-                <ListChecks size={16} strokeWidth={1.6} />
+                <ListChecks size={17} strokeWidth={1.6} />
                 Tasks
               </Link>
               <Link
                 href="/projects"
-                className="inline-flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-medium border border-border bg-background hover:bg-surface-1 text-foreground no-underline transition-colors"
+                className="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-[13px] font-medium border border-border/80 bg-surface-1 hover:bg-muted/40 hover:border-border text-foreground no-underline motion-safe:transition-all shadow-[var(--shadow-sm)]"
               >
-                <FolderKanban size={16} strokeWidth={1.6} />
+                <FolderKanban size={17} strokeWidth={1.6} />
                 Projects
               </Link>
             </div>
@@ -128,10 +129,10 @@ function HomeContent() {
           <div className="max-w-4xl mx-auto space-y-8">
             {/* Shortcuts grid — Linear / Notion style */}
             <section>
-              <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-4">
                 Surfaces
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {SHORTCUTS.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -139,12 +140,12 @@ function HomeContent() {
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg border border-border bg-surface-1/50 p-3",
-                        "hover:bg-surface-1 hover:border-border/80 transition-colors no-underline text-left"
+                        "flex items-center gap-3 rounded-2xl border border-border/80 bg-card p-4 shadow-[var(--shadow-sm)]",
+                        "hover:shadow-[var(--shadow-md)] hover:border-border motion-safe:hover-lift no-underline text-left group"
                       )}
                     >
-                      <div className="rounded-md bg-muted/60 p-2 shrink-0">
-                        <Icon size={16} strokeWidth={1.5} className="text-muted-foreground" />
+                      <div className="rounded-xl bg-muted/50 p-2.5 shrink-0 ring-1 ring-border/40 group-hover:bg-muted/70 motion-safe:transition-colors">
+                        <Icon size={17} strokeWidth={1.5} className="text-muted-foreground" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <span className="text-[13px] font-medium text-foreground block truncate">
@@ -163,32 +164,32 @@ function HomeContent() {
 
             {/* Recent sessions — ChatGPT style */}
             <section>
-              <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-4">
                 Recent sessions
               </h2>
               {recentSessions.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border bg-surface-1/30 px-4 py-6 text-center">
-                  <MessageSquare className="mx-auto text-muted-foreground/50 mb-2" size={24} strokeWidth={1.2} />
-                  <p className="text-[13px] text-muted-foreground">No chats yet</p>
-                  <p className="text-[12px] text-muted-foreground/80 mt-0.5">
+                <div className="rounded-2xl border border-dashed border-border/80 bg-muted/20 px-6 py-10 text-center shadow-[var(--shadow-sm)]">
+                  <MessageSquare className="mx-auto text-muted-foreground/45 mb-3" size={28} strokeWidth={1.2} />
+                  <p className="text-[14px] font-medium text-foreground">No chats yet</p>
+                  <p className="text-[13px] text-muted-foreground mt-1.5 leading-relaxed max-w-xs mx-auto">
                     Start a new chat to see sessions here.
                   </p>
                   <button
                     type="button"
                     onClick={handleNewChat}
-                    className="mt-3 text-[12px] font-medium text-primary hover:underline"
+                    className="mt-5 rounded-xl bg-primary text-primary-foreground px-4 py-2.5 text-[13px] font-semibold hover:opacity-90 motion-safe:transition-opacity"
                   >
                     New chat
                   </button>
                 </div>
               ) : (
-                <ul className="rounded-lg border border-border bg-surface-1/30 divide-y divide-border overflow-hidden">
+                <ul className="rounded-2xl border border-border/80 bg-surface-1 divide-y divide-border/80 overflow-hidden shadow-[var(--shadow-sm)]">
                   {recentSessions.map((item) => (
                     <li key={item.id}>
                       <button
                         type="button"
                         onClick={() => handleOpenChat(item.chatId)}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-1 transition-colors"
+                        className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-muted/30 motion-safe:transition-colors focus-visible:bg-muted/30"
                       >
                         <span className="flex-1 min-w-0 text-[13px] text-foreground truncate">
                           {item.title}

@@ -29,9 +29,12 @@ export function StatusDot({
   return (
     <span
       className={cn(
-        "inline-block h-1.5 w-1.5 rounded-full shrink-0",
+        "inline-block h-2 w-2 rounded-full shrink-0 ring-2 ring-background shadow-sm",
         dotColors[variant],
-        pulse && "animate-pulse",
+        variant === "success" && "ring-success/25",
+        variant === "error" && "ring-destructive/20",
+        variant === "running" && "ring-blue-400/30",
+        pulse && "motion-safe:animate-pulse",
         className
       )}
     />

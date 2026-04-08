@@ -11,7 +11,7 @@ Already in repo:
 
 Validated now:
 - install/typecheck/test pass
-- gateway/dashboard boot on intended ports (`4317`, `4318`)
+- gateway/dashboard boot on intended ports (`4317`, `4318`); gateway survives PGlite persistent failure via in-memory fallback
 - browser QA passes across all core pages and flows
 - Geist font + Tailwind CSS + Lucide icons design system in place
 - All dashboard pages use Tailwind utility classes (zero inline styles)
