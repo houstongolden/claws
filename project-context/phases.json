@@ -138,6 +138,25 @@
       "name": "Full OpenClaw workspace deploy",
       "status": "deferred",
       "reason": "Deploy heavy infra/workspace image to Fly as claws-workspace-base. Deferred until a real user provisioning request."
+    },
+    {
+      "id": "H",
+      "name": "CLI-inspired design system (DESIGN.md v2 + BRAND.md)",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "DESIGN.md v2 (binding, rewritten)",
+        "BRAND.md (new, binding voice + positioning)",
+        "apps/web/app/globals.css (design tokens)",
+        "apps/web/app/page.tsx (full rewrite in CLI aesthetic)",
+        "apps/web/app/layout.tsx (Geist via next/font)",
+        "apps/studio/app/globals.css (mirrored tokens)",
+        "apps/studio/app/page.tsx (redesigned with // tags)",
+        "apps/studio/app/live-panel.tsx (redesigned mono stats)",
+        "apps/dashboard/app/globals.css (v2 token aliases for new components)",
+        "packages/cli/src/ui.mjs (new 🦞 logo, brand ANSI red)",
+        "Landing deployed to claws-landing.vercel.app"
+      ]
     }
   ]
 }
