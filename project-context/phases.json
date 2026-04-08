@@ -96,27 +96,42 @@
     {
       "id": "D2",
       "name": "Port claw-code P1 patterns",
-      "status": "in_progress",
+      "status": "complete",
       "completedAt": "2026-04-08",
       "artifacts": [
-        "packages/runtime-db/src/session-events.ts (JSONL sessions ported from session.rs)",
-        "packages/runtime-db/src/index.ts (exports SessionEventStream + derived views)",
-        "Smoke test: 8/8 operations passed (append, loadAll, tree, cost, approvals, resume, seq, subscribe)"
+        "packages/runtime-db/src/session-events.ts (JSONL sessions, 450 LOC)",
+        "packages/core/src/permissions.ts (3-tier permission mode enforcement, ~380 LOC)",
+        "apps/worker/src/worker-state.ts (WorkerStatus state machine + WorkerRegistry, ~260 LOC)",
+        "Smoke tests: SessionEventStream 8/8, PermissionPolicy 10/10, WorkerState 11/11"
       ],
       "completed": [
-        "P1.1 JSONL session events ✅"
+        "P1.1 JSONL session events ✅",
+        "P1.2 Permission modes (read-only / workspace-write / danger-full-access) ✅",
+        "P1.3 Worker boot lifecycle (6-state machine + registry) ✅"
       ],
       "remaining": [
-        "P1.2 Permission modes (read-only / workspace-write / danger-full-access)",
-        "P1.3 Worker boot lifecycle (explicit state machine)",
-        "P1.4 Session control API (pause/resume/fork endpoints)"
+        "P1.4 Session control HTTP API (pause/resume/fork endpoints) — deferred until async loop is wired"
       ]
     },
     {
       "id": "E2",
-      "name": "Studio full wiring (StudioLayout + backend)",
-      "status": "pending",
-      "reason": "Needs backend decision (Convex vs HTTP/SQLite). See PHASE-A-SALVAGE-NOTES.md"
+      "name": "Studio live panel (pragmatic middle)",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "apps/studio/app/live-panel.tsx (client component, polls gateway every 3s)",
+        "apps/studio/app/page.tsx (server component consuming LivePanel)",
+        "Live metrics: protocol version, RPC methods, model, provider, tools, agents, workflows, approvals, traces",
+        "Status badge with pulse animation when connected, graceful offline state",
+        "End-to-end verified: gateway:4317 + studio:4319 both HTTP 200"
+      ],
+      "notes": "Full StudioLayout template editor + template marketplace still pending — deferred to E3 when there's user demand and a firmer backend decision. The current live panel is more useful day-to-day than a half-wired editor."
+    },
+    {
+      "id": "E3",
+      "name": "Full Studio template editor + marketplace",
+      "status": "deferred",
+      "reason": "Needs backend decision (Convex project vs file-backed HTTP) + real user demand. StudioLayout is preserved in apps/studio/_legacy/ for future port."
     },
     {
       "id": "G2",

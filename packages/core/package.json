@@ -11,7 +11,8 @@
     "./router": "./src/router.ts",
     "./runner": "./src/runner.ts",
     "./workflow": "./src/workflow.ts",
-    "./workflow-vercel": "./src/workflow-vercel.ts"
+    "./workflow-vercel": "./src/workflow-vercel.ts",
+    "./permissions": "./src/permissions.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
