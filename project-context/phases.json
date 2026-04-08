@@ -82,9 +82,35 @@
     },
     {
       "id": "G",
-      "name": "Fly.io infra test",
-      "status": "deferred",
-      "reason": "Requires Fly.io account credits and explicit user greenlight. Infra files are salvaged in infra/ but not yet built/deployed."
+      "name": "Fly.io infra validation",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "infra/claws-workspace-test/ (test Dockerfile + fly.toml)",
+        "project-context/PHASE-G-FLY-INFRA-VALIDATION.md",
+        "Validated: flyctl install + auth + app create + remote build + image push + machine provision + TLS + DNS + HTTP 200 + app destroy cycle",
+        "Test cost: ~$0.01, app torn down immediately"
+      ],
+      "notes": "Real OpenClaw workspace image (infra/workspace/) not yet deployed — deferred to G2 when a real user provisions"
+    },
+    {
+      "id": "D2",
+      "name": "Port claw-code P1 patterns",
+      "status": "in_progress",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "packages/runtime-db/src/session-events.ts (JSONL sessions ported from session.rs)",
+        "packages/runtime-db/src/index.ts (exports SessionEventStream + derived views)",
+        "Smoke test: 8/8 operations passed (append, loadAll, tree, cost, approvals, resume, seq, subscribe)"
+      ],
+      "completed": [
+        "P1.1 JSONL session events ✅"
+      ],
+      "remaining": [
+        "P1.2 Permission modes (read-only / workspace-write / danger-full-access)",
+        "P1.3 Worker boot lifecycle (explicit state machine)",
+        "P1.4 Session control API (pause/resume/fork endpoints)"
+      ]
     },
     {
       "id": "E2",
@@ -93,10 +119,10 @@
       "reason": "Needs backend decision (Convex vs HTTP/SQLite). See PHASE-A-SALVAGE-NOTES.md"
     },
     {
-      "id": "D2",
-      "name": "Port claw-code patterns to experimental OS",
-      "status": "pending",
-      "reason": "P1 patterns: JSONL sessions, permission modes, worker boot. See PHASE-D-CLAW-CODE-REFERENCE.md"
+      "id": "G2",
+      "name": "Full OpenClaw workspace deploy",
+      "status": "deferred",
+      "reason": "Deploy heavy infra/workspace image to Fly as claws-workspace-base. Deferred until a real user provisioning request."
     }
   ]
 }

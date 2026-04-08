@@ -26,6 +26,39 @@ import type { SessionLiveState } from "@claws/shared/types";
 import { SCHEMA_SQL, CONVERSATIONS_SCHEMA_SQL, INTELLIGENCE_SCHEMA_SQL, CHANNELS_SCHEMA_SQL, PROACTIVITY_SCHEMA_SQL, DECISION_ENGINE_SCHEMA_SQL } from "./schema.js";
 import { getDb, setDb, clearDb } from "./db-internal.js";
 
+// JSONL-backed session event stream (ported from ultraworkers/claw-code)
+export {
+  SessionEventStream,
+  createSession as createEventStreamSession,
+  openSession as openEventStreamSession,
+  listSessions as listEventStreamSessions,
+  deriveAgentTree,
+  deriveCostSummary,
+} from "./session-events.js";
+export type {
+  SessionEvent,
+  SessionEventType,
+  AgentStatus,
+  AgentNode,
+  AgentTree,
+  CostSummary,
+  SessionStartEvent,
+  SessionEndEvent,
+  AgentSpawnEvent,
+  AgentDespawnEvent,
+  AgentStatusEvent,
+  ToolCallEvent,
+  ToolResultEvent,
+  ToolErrorEvent,
+  ApprovalRequestedEvent,
+  ApprovalResolvedEvent,
+  CostDeltaEvent,
+  MessageEvent as SessionMessageEvent,
+  CheckpointEvent,
+  NoteEvent,
+  SessionStreamOptions,
+} from "./session-events.js";
+
 export { getDb };
 
 let db: PGlite | null = null;
