@@ -1192,13 +1192,13 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
               </div>
             </div>
 
-            <div className="shrink-0 px-4 sm:px-6 pt-2 pb-0">
+            <div className="shrink-0 px-4 sm:px-6 pt-0 pb-0">
               <div className="mx-auto w-full max-w-[var(--content-max-width)]">
                 <LiveStateBar chatId={currentMeta?.chatId ?? meta.chatId} threadId={currentMeta?.threadId ?? meta.threadId} refreshTrigger={liveStateRefreshTrigger} />
               </div>
             </div>
 
-            <div className="shrink-0 border-t border-border/40 bg-background/80 backdrop-blur-xl px-4 sm:px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="shrink-0 px-4 sm:px-6 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <div className="mx-auto w-full max-w-[var(--content-max-width)]">
                 {hydrated && status != null && status.gateway !== "online" ? (
                   <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.07] px-4 py-3.5 mb-3 text-[13px] text-foreground shadow-[var(--shadow-sm)]">
@@ -1563,7 +1563,7 @@ function MessageRow({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <div className={cn(isUser ? "max-w-[var(--chat-message-max-width)] w-full text-right" : "w-full max-w-[min(100%,48rem)]")}>
+      <div className={cn(isUser ? "max-w-[var(--chat-message-max-width)] w-full text-right" : "w-full")}>
         {entry.images?.length ? (
           <div className={cn("flex gap-2 mb-2", isUser ? "justify-end" : "")}>
             {entry.images.map((img, idx) => (
@@ -1585,13 +1585,14 @@ function MessageRow({
             </>
           ) : (
             <div className="flex-1 min-w-0 space-y-2">
-              {!entry.streaming && (entry.content || (entry.toolResults?.length ?? 0) > 0) ? (
+              {/* Steps card ONLY when there are actual tool calls — never for plain text replies */}
+              {!entry.streaming && (entry.toolResults?.length ?? 0) > 0 ? (
                 <AgentStepList
-                  content={entry.content}
+                  content=""
                   toolResults={entry.toolResults}
                 />
               ) : null}
-              <div className="text-[14px] leading-relaxed text-foreground">
+              <div className="text-[13.5px] leading-relaxed text-foreground">
                 <ChatMarkdown content={entry.content} />
                 {entry.streaming ? <span className="inline-block w-1.5 h-4 bg-foreground/40 ml-0.5 animate-pulse rounded-sm align-middle" /> : null}
               </div>

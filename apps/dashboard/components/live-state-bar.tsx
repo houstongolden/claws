@@ -63,7 +63,8 @@ export function LiveStateBar({ chatId, threadId, refreshTrigger = 0, className }
     saved > 0 ||
     files.length > 0;
 
-  if (!hasAny && !state && !error) return null;
+  // Hide entirely if there's nothing useful to show — don't render an empty pill
+  if (!hasAny && !error) return null;
 
   return (
     <div

@@ -455,9 +455,9 @@ export function Nav() {
             )}
           </CollapsibleSection>
 
-          {/* Surfaces: Workflows, Proactivity, Approvals, Traces, Agents (toggleable, default closed) */}
+          {/* Runtime: Workflows, Proactivity, Approvals, Traces, Agents */}
           <CollapsibleSection
-            label="Surfaces"
+            label="Runtime"
             storageKey="more"
             defaultOpen={false}
             collapsed={false}
