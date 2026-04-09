@@ -102,19 +102,19 @@ function CollapsibleSection({
 
   if (collapsed) return <>{children}</>;
   return (
-    <div>
+    <div className="mt-2">
       <button
         type="button"
         onClick={toggle}
-        className="w-full flex items-center gap-1.5 py-2 px-2.5 rounded-xl text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-hover motion-safe:transition-colors text-left"
+        className="w-full flex items-center gap-1.5 py-1 px-2 rounded text-sidebar-foreground/45 hover:text-sidebar-foreground/70 hover:bg-sidebar-hover/40 transition-colors text-left group"
         aria-expanded={open}
       >
         <ChevronDown
-          size={14}
-          className={cn("shrink-0 transition-transform", !open && "-rotate-90")}
+          size={9}
+          className={cn("shrink-0 transition-transform opacity-60 group-hover:opacity-100", !open && "-rotate-90")}
+          strokeWidth={2.2}
         />
-        <span className="text-sidebar-foreground/50 shrink-0">{icon}</span>
-        <span className="text-[11px] font-medium text-sidebar-foreground/70 uppercase tracking-wider truncate">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] truncate font-[family-name:var(--font-geist-mono)]">
           {label}
         </span>
       </button>
@@ -245,55 +245,57 @@ export function Nav() {
         collapsed ? "w-[52px]" : "w-[240px]"
       )}
     >
-      {/* Header: logo + collapse */}
-      <div className={cn("shrink-0 border-b border-sidebar-border/80", collapsed ? "py-3 px-2" : "px-3 pt-3 pb-2")}>
-        <div className={cn("flex items-center", collapsed ? "flex-col gap-1 justify-center" : "justify-between gap-2")}>
-          <div className={cn("flex items-center gap-2.5 min-w-0", collapsed && "flex-col")}>
-            <Link
-              href="/"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[26px] leading-none bg-transparent no-underline hover:opacity-80 active:scale-95 transition-transform"
-              title="Claws"
-              aria-label="Claws home"
-            >
-              🦞
-            </Link>
-            {!collapsed && (
-              <span className="text-[15px] font-semibold text-foreground tracking-tight truncate">Claws</span>
+      {/* Header: logo + collapse — Cursor-tight */}
+      <div className={cn("shrink-0", collapsed ? "py-2 px-2" : "px-2.5 pt-2.5 pb-2")}>
+        <div className={cn("flex items-center", collapsed ? "flex-col gap-1 justify-center" : "justify-between gap-1")}>
+          <Link
+            href="/"
+            className={cn(
+              "flex items-center gap-1.5 no-underline rounded-md px-1.5 py-1 hover:bg-sidebar-hover transition-colors",
+              collapsed && "justify-center px-0"
             )}
-          </div>
+            title="Claws"
+            aria-label="Claws home"
+          >
+            <span className="text-[16px] leading-none">🦞</span>
+            {!collapsed && (
+              <span className="text-[12px] font-semibold text-foreground tracking-tight">Claws</span>
+            )}
+          </Link>
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-hover rounded-md transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="p-1 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-hover rounded transition-colors shrink-0 focus-visible:outline-none"
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!collapsed}
           >
-            {collapsed ? <PanelLeft size={18} strokeWidth={1.8} /> : <PanelLeftClose size={18} strokeWidth={1.8} />}
+            {collapsed ? <PanelLeft size={14} strokeWidth={1.8} /> : <PanelLeftClose size={14} strokeWidth={1.8} />}
           </button>
         </div>
       </div>
 
-      {/* New chat + Search (ChatGPT-style) */}
-      <div className={cn("shrink-0", collapsed ? "px-2 pt-2" : "px-3 pt-3 pb-2")}>
+      {/* New chat + Search — tighter, more Cursor-like */}
+      <div className={cn("shrink-0", collapsed ? "px-2" : "px-2.5 pb-2")}>
         {!collapsed ? (
           <>
             <Link
               href="/"
               onClick={(e) => { if (isChatRoute) { e.preventDefault(); handleNewChat(); } }}
-              className="w-full flex items-center justify-center gap-2 rounded-[12px] py-2.5 px-3 bg-foreground text-background hover:opacity-[0.92] active:scale-[0.99] no-underline transition-all shadow-sm font-medium text-[13px] tracking-tight"
+              className="w-full flex items-center gap-1.5 rounded-md py-1.5 px-2 text-sidebar-foreground hover:text-foreground hover:bg-sidebar-hover no-underline transition-colors text-[12px]"
             >
-              <MessageSquarePlus size={17} strokeWidth={1.6} className="shrink-0" />
+              <MessageSquarePlus size={13} strokeWidth={1.8} className="shrink-0" />
               <span>New chat</span>
+              <span className="ml-auto text-[10px] text-sidebar-foreground/40 font-[family-name:var(--font-geist-mono)]">⌘N</span>
             </Link>
-            <div className="relative mt-2.5">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-sidebar-foreground/45" />
+            <div className="relative mt-1">
+              <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-sidebar-foreground/40" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search chats"
-                className="w-full rounded-[12px] border border-sidebar-border bg-background/90 pl-9 pr-3 py-2.5 text-[13px] text-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:ring-2 focus:ring-ring/80 focus:border-transparent transition-shadow shadow-sm"
+                placeholder="Search…"
+                className="w-full rounded-md bg-sidebar-hover/40 pl-7 pr-2 py-1.5 text-[12px] text-foreground placeholder:text-sidebar-foreground/40 border border-transparent focus:outline-none focus:bg-sidebar-hover/60 focus:border-sidebar-border transition-colors"
                 aria-label="Search chats"
               />
             </div>
@@ -302,17 +304,17 @@ export function Nav() {
           <button
             type="button"
             onClick={handleNewChat}
-            className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-sidebar-hover text-sidebar-foreground"
+            className="w-full flex items-center justify-center p-1.5 rounded hover:bg-sidebar-hover text-sidebar-foreground"
             title="New chat"
             aria-label="New chat"
           >
-            <MessageSquarePlus size={20} strokeWidth={1.6} />
+            <MessageSquarePlus size={14} strokeWidth={1.8} />
           </button>
         )}
       </div>
 
       {/* Primary nav: Home, Tasks, Projects (dropdown), Files, Memory */}
-      <div className={cn("shrink-0 border-b border-sidebar-border", collapsed ? "px-1 py-1.5" : "px-2 py-1.5")}>
+      <div className={cn("shrink-0", collapsed ? "px-1 pb-1" : "px-2.5 pb-1.5")}>
         {PRIMARY_NAV_LINKS.map((item) => {
           const Icon = item.icon;
           const isProjects = item.href === "/projects";
@@ -324,23 +326,23 @@ export function Nav() {
                   type="button"
                   onClick={() => setProjectsDropdownOpen((o) => !o)}
                   className={cn(
-                    "w-full flex items-center gap-2 py-2 px-2.5 my-0.5 rounded-xl transition-colors duration-150",
-                    isActive ? "text-sidebar-active bg-sidebar-active-bg font-medium shadow-sm" : "text-sidebar-foreground hover:bg-sidebar-hover"
+                    "w-full flex items-center gap-2 py-1 px-2 rounded transition-colors text-[12px]",
+                    isActive ? "text-foreground bg-sidebar-hover" : "text-sidebar-foreground hover:bg-sidebar-hover hover:text-foreground"
                   )}
                   title={item.label}
                 >
-                  <Icon size={15} strokeWidth={1.5} className="shrink-0" />
-                  <span className="text-[12px] truncate flex-1 text-left">{item.label}</span>
-                  <ChevronDown size={14} className={cn("shrink-0 transition-transform", projectsDropdownOpen && "rotate-180")} />
+                  <Icon size={13} strokeWidth={1.7} className="shrink-0" />
+                  <span className="truncate flex-1 text-left">{item.label}</span>
+                  <ChevronDown size={11} className={cn("shrink-0 transition-transform opacity-50", projectsDropdownOpen && "rotate-180")} />
                 </button>
                 {projectsDropdownOpen && (
-                  <div className="absolute left-0 right-0 top-full mt-0.5 py-1 rounded-lg border border-sidebar-border bg-sidebar shadow-lg z-50 min-w-[180px]">
+                  <div className="absolute left-0 right-0 top-full mt-1 py-1 rounded-md border border-sidebar-border bg-sidebar shadow-lg z-50 min-w-[180px]">
                     <Link
                       href="/projects"
                       onClick={() => setProjectsDropdownOpen(false)}
-                      className="flex items-center gap-2 py-2 px-3 text-[12px] text-sidebar-foreground hover:bg-sidebar-hover no-underline"
+                      className="flex items-center gap-2 py-1.5 px-2.5 text-[12px] text-sidebar-foreground hover:bg-sidebar-hover hover:text-foreground no-underline"
                     >
-                      <Plus size={14} strokeWidth={1.6} className="shrink-0" />
+                      <Plus size={11} strokeWidth={1.8} className="shrink-0" />
                       New project
                     </Link>
                     {projects.slice(0, 6).map((project) => (
@@ -348,10 +350,10 @@ export function Nav() {
                         key={project.slug}
                         href={`/projects/${encodeURIComponent(project.slug)}`}
                         onClick={() => setProjectsDropdownOpen(false)}
-                        className="flex items-center gap-2 py-1.5 px-3 text-[12px] text-sidebar-foreground hover:bg-sidebar-hover no-underline truncate"
+                        className="flex items-center gap-2 py-1.5 px-2.5 text-[12px] text-sidebar-foreground hover:bg-sidebar-hover hover:text-foreground no-underline truncate"
                         title={project.name}
                       >
-                        <FolderOpen size={14} strokeWidth={1.6} className="shrink-0" />
+                        <FolderOpen size={11} strokeWidth={1.8} className="shrink-0" />
                         <span className="truncate">{project.name}</span>
                       </Link>
                     ))}
@@ -365,14 +367,14 @@ export function Nav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center no-underline transition-colors rounded-md",
-                collapsed ? "justify-center p-2 my-0.5" : "gap-2 py-1.5 px-2.5 my-0.5",
-                isActive ? "text-sidebar-active bg-sidebar-active-bg/80" : "text-sidebar-foreground hover:bg-sidebar-hover"
+                "flex items-center no-underline transition-colors rounded text-[12px]",
+                collapsed ? "justify-center p-1.5" : "gap-2 py-1 px-2",
+                isActive ? "text-foreground bg-sidebar-hover" : "text-sidebar-foreground hover:bg-sidebar-hover hover:text-foreground"
               )}
               title={item.label}
             >
-              <Icon size={collapsed ? 18 : 15} strokeWidth={1.5} className="shrink-0" />
-              {!collapsed && <span className="text-[12px] truncate">{item.label}</span>}
+              <Icon size={collapsed ? 14 : 13} strokeWidth={1.7} className="shrink-0" />
+              {!collapsed && <span className="truncate">{item.label}</span>}
             </Link>
           );
         })}
@@ -410,14 +412,14 @@ export function Nav() {
                   type="button"
                   onClick={() => handleSelectChannel(channel)}
                   className={cn(
-                    "w-full flex items-center gap-2 rounded-md py-1.5 px-2.5 text-left transition-colors text-[12px]",
-                    collapsed ? "justify-center px-2" : "gap-2",
-                    isActive ? "bg-sidebar-active-bg text-sidebar-active" : "text-sidebar-foreground hover:bg-sidebar-hover"
+                    "w-full flex items-center gap-2 rounded py-1 px-2 text-left transition-colors text-[12px]",
+                    collapsed ? "justify-center" : "",
+                    isActive ? "bg-sidebar-hover text-foreground" : "text-sidebar-foreground hover:bg-sidebar-hover hover:text-foreground"
                   )}
                   title={displayName}
                 >
-                  <Hash size={14} strokeWidth={1.6} className="shrink-0" />
-                  {!collapsed && <span className="flex-1 min-w-0 truncate">{displayName}</span>}
+                  <Hash size={11} strokeWidth={1.8} className="shrink-0 opacity-60" />
+                  {!collapsed && <span className="flex-1 min-w-0 truncate font-[family-name:var(--font-geist-mono)]">{slug}</span>}
                 </button>
               );
             })}
@@ -469,15 +471,15 @@ export function Nav() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-2 rounded-xl py-2 px-2.5 text-[12px] no-underline motion-safe:transition-colors",
-                    collapsed ? "justify-center px-2" : "gap-2",
+                    "flex items-center gap-2 rounded py-1 px-2 text-[12px] no-underline transition-colors",
+                    collapsed ? "justify-center" : "",
                     isActive
-                      ? "text-sidebar-active bg-sidebar-active-bg/80"
-                      : "text-sidebar-foreground hover:bg-sidebar-hover"
+                      ? "text-foreground bg-sidebar-hover"
+                      : "text-sidebar-foreground hover:text-foreground hover:bg-sidebar-hover"
                   )}
                   title={item.label}
                 >
-                  <Icon size={14} strokeWidth={1.5} className="shrink-0" />
+                  <Icon size={12} strokeWidth={1.7} className="shrink-0" />
                   {!collapsed && <span className="truncate">{item.label}</span>}
                 </Link>
               );
@@ -530,16 +532,16 @@ export function Nav() {
       )}
 
       {/* Footer: theme + settings */}
-      <div className="shrink-0 border-t border-sidebar-border pt-2 pb-3 px-2">
-        <div className={cn("flex items-center gap-1", collapsed ? "justify-center" : "px-1.5")}>
+      <div className="shrink-0 border-t border-sidebar-border/60 px-2 py-1.5">
+        <div className={cn("flex items-center gap-0.5", collapsed ? "justify-center flex-col" : "")}>
           <ThemeToggle />
           {!collapsed && (
             <Link
               href="/settings"
-              className="flex items-center gap-2 py-1.5 px-2 rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-hover text-[12px] no-underline"
+              className="flex items-center gap-2 py-1 px-2 rounded text-sidebar-foreground hover:text-foreground hover:bg-sidebar-hover text-[12px] no-underline transition-colors"
               title="Settings"
             >
-              <Settings size={14} />
+              <Settings size={12} strokeWidth={1.7} />
               Settings
             </Link>
           )}
@@ -653,42 +655,35 @@ function ChatRow({
   return (
     <div
       className={cn(
-        "w-full flex items-center gap-1 rounded-[12px] py-2 px-2 text-left motion-safe:transition-[background,box-shadow] duration-200 group",
+        "w-full flex items-center gap-1 rounded py-1 px-2 text-left transition-colors group",
         isActive
-          ? "bg-sidebar-active-bg text-sidebar-active ring-1 ring-sidebar-border/80 shadow-sm"
-          : "text-sidebar-foreground hover:bg-sidebar-hover/90 motion-safe:hover-lift"
+          ? "bg-sidebar-hover text-foreground"
+          : "text-sidebar-foreground hover:bg-sidebar-hover/60 hover:text-foreground"
       )}
     >
       <button
         type="button"
         onClick={onSelect}
-        className="flex-1 min-w-0 flex items-center gap-2 text-left rounded-[10px] py-0.5 -my-0.5 focus-visible:ring-2 focus-visible:ring-ring/25"
+        className="flex-1 min-w-0 flex items-center gap-2 text-left focus-visible:outline-none"
         title={item.title}
       >
-        <span className="flex-1 min-w-0 text-[12px] font-medium truncate leading-snug">{item.title}</span>
+        <span className="flex-1 min-w-0 text-[12px] truncate leading-snug">{item.title}</span>
       </button>
       <button
         type="button"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onStarClick(e); }}
         className={cn(
-          "p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-sidebar-hover/80 transition-opacity shrink-0",
+          "p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-sidebar-hover transition-opacity shrink-0",
           item.starred && "opacity-100 text-amber-500"
         )}
         aria-label={item.starred ? "Unstar" : "Star"}
         title={item.starred ? "Unstar" : "Star"}
       >
-        <Star size={12} fill={item.starred ? "currentColor" : "none"} />
+        <Star size={10} fill={item.starred ? "currentColor" : "none"} />
       </button>
-      <button
-        type="button"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEditing(true); }}
-        className="p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-sidebar-hover/80 transition-opacity shrink-0"
-        aria-label="Rename"
-        title="Rename"
-      >
-        <Pencil size={12} />
-      </button>
-      <span className="text-[10px] tabular-nums text-sidebar-foreground/45 shrink-0 rounded-md bg-sidebar-hover/50 px-1.5 py-0.5">{formatTime(item.lastActivity)}</span>
+      <span className="text-[9px] tabular-nums text-sidebar-foreground/40 shrink-0 font-[family-name:var(--font-geist-mono)]">
+        {formatTime(item.lastActivity)}
+      </span>
     </div>
   );
 }

@@ -22,3 +22,4 @@ project-context/Claws-PRD-v0.01.md
 .env.local.bak
 .env.*.bak
 .env.backup
+.gstack/

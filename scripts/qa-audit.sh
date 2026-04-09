@@ -67,30 +67,65 @@ mkdir -p "$AUDIT_DIR"
     exit 0
   fi
 
-  # 4. Visual audit via gstack browse
+  # 4. Visual audit via gstack browse — capture all live surfaces
   echo "## Visual audit"
-  SCREENSHOT="$AUDIT_DIR/shot-$TIMESTAMP.png"
-  if "$BROWSE" goto "$DASHBOARD_URL" >/dev/null 2>&1 && \
-     "$BROWSE" screenshot "$SCREENSHOT" >/dev/null 2>&1; then
-    echo "- ✅ Screenshot captured: $(basename "$SCREENSHOT")"
-    SIZE=$(stat -f%z "$SCREENSHOT" 2>/dev/null || stat -c%s "$SCREENSHOT" 2>/dev/null || echo "?")
-    echo "- Size: $SIZE bytes"
-  else
-    echo "- ⚠ Screenshot failed"
-  fi
+
+  capture_surface() {
+    local label="$1"
+    local url="$2"
+    local final_shot="$AUDIT_DIR/${label}-$TIMESTAMP.png"
+    # The browse binary is sandboxed to /private/tmp + the repo path. Write to /tmp
+    # then move to the final audit dir.
+    local tmp_shot="/tmp/claws-qa-${label}-$$-$RANDOM.png"
+    local goto_log shot_log goto_rc shot_rc
+    if ! curl -sf -m 3 "$url" >/dev/null 2>&1; then
+      echo "- · $label: offline, skipped"
+      return 0
+    fi
+    set +e
+    goto_log=$("$BROWSE" goto "$url" 2>&1)
+    goto_rc=$?
+    if [ "$goto_rc" -ne 0 ]; then
+      set -e
+      echo "- ⚠ $label: goto failed ($(printf '%s' "$goto_log" | head -1))"
+      return 0
+    fi
+    shot_log=$("$BROWSE" screenshot "$tmp_shot" 2>&1)
+    shot_rc=$?
+    set -e
+    if [ "$shot_rc" -ne 0 ] || [ ! -f "$tmp_shot" ]; then
+      echo "- ⚠ $label: screenshot failed ($(printf '%s' "$shot_log" | head -1))"
+      rm -f "$tmp_shot"
+      return 0
+    fi
+    mv "$tmp_shot" "$final_shot" 2>/dev/null || cp "$tmp_shot" "$final_shot"
+    rm -f "$tmp_shot"
+    local size
+    size=$(stat -f%z "$final_shot" 2>/dev/null || stat -c%s "$final_shot" 2>/dev/null || echo "?")
+    echo "- ✅ $label: $(basename "$final_shot") (${size}B)"
+  }
+
+  capture_surface "dashboard" "$DASHBOARD_URL"
+  capture_surface "studio"    "${CLAWS_STUDIO_URL:-http://localhost:4319}"
+  capture_surface "landing"   "${CLAWS_LANDING_URL:-http://localhost:3000}"
+
+  # Set legacy SCREENSHOT var for downstream pruning logic
+  SCREENSHOT="$AUDIT_DIR/dashboard-$TIMESTAMP.png"
 
   # 5. Console errors
   CONSOLE_OUTPUT=$("$BROWSE" console 2>/dev/null || echo "")
   if [ -n "$CONSOLE_OUTPUT" ]; then
-    ERROR_COUNT=$(echo "$CONSOLE_OUTPUT" | grep -ci "error" || echo "0")
-    WARN_COUNT=$(echo "$CONSOLE_OUTPUT" | grep -ci "warn" || echo "0")
+    ERROR_COUNT=$(printf '%s\n' "$CONSOLE_OUTPUT" | grep -ic "error" 2>/dev/null | tr -d '[:space:]')
+    WARN_COUNT=$(printf '%s\n' "$CONSOLE_OUTPUT" | grep -ic "warn" 2>/dev/null | tr -d '[:space:]')
+    ERROR_COUNT=${ERROR_COUNT:-0}
+    WARN_COUNT=${WARN_COUNT:-0}
     echo "- Console errors: $ERROR_COUNT"
     echo "- Console warnings: $WARN_COUNT"
-    if [ "$ERROR_COUNT" -gt 0 ]; then
+    if [ "${ERROR_COUNT:-0}" -gt 0 ] 2>/dev/null; then
       echo
       echo "### Top errors"
       echo '```'
-      echo "$CONSOLE_OUTPUT" | grep -i "error" | head -5
+      printf '%s\n' "$CONSOLE_OUTPUT" | grep -i "error" | head -5
       echo '```'
     fi
   fi
@@ -105,9 +140,11 @@ mkdir -p "$AUDIT_DIR"
 } > "$REPORT"
 
 # Prune old audits (keep last 48 = 12 hours at 15min cadence)
-# Use find with -print | head to cap deletion to 1 pass
 ls -t "$AUDIT_DIR"/audit-*.md 2>/dev/null | tail -n +49 | xargs -I {} rm -f {} 2>/dev/null || true
-ls -t "$AUDIT_DIR"/shot-*.png 2>/dev/null | tail -n +49 | xargs -I {} rm -f {} 2>/dev/null || true
+ls -t "$AUDIT_DIR"/dashboard-*.png 2>/dev/null | tail -n +49 | xargs -I {} rm -f {} 2>/dev/null || true
+ls -t "$AUDIT_DIR"/studio-*.png 2>/dev/null | tail -n +49 | xargs -I {} rm -f {} 2>/dev/null || true
+ls -t "$AUDIT_DIR"/landing-*.png 2>/dev/null | tail -n +49 | xargs -I {} rm -f {} 2>/dev/null || true
+ls -t "$AUDIT_DIR"/shot-*.png 2>/dev/null | xargs -I {} rm -f {} 2>/dev/null || true
 
 # Update phase status pointer (so status scripts can see "last audit")
 PHASE_STATUS="$CLAWS_HOME/phase-status.json"

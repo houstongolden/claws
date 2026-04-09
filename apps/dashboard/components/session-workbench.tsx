@@ -958,15 +958,24 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
   return (
     <Shell>
       <div className="flex h-screen flex-col session-canvas">
-        <header className="shrink-0 border-b border-border/60 glass-bar px-4 sm:px-6 py-3 sm:py-3.5 z-20 supports-[padding:max(0px)]:pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="text-[15px] sm:text-[16px] font-semibold text-foreground tracking-tight truncate">Session</h1>
-              <p className="text-[12px] text-muted-foreground mt-0.5 truncate leading-snug max-w-xl font-[450]">
-                {loading ? "Claws is responding…" : status?.gateway === "online" && status?.ai?.enabled ? "Chat, build, and ship — projects, tasks, memory & tools" : status?.gateway === "online" && !status?.ai?.enabled ? "Gateway online — configure API keys in Settings to enable AI" : status?.gateway === "offline" ? "Gateway offline — start the gateway to use chat" : "Connecting…"}
-              </p>
+        <header className="shrink-0 border-b border-border/40 glass-bar px-4 sm:px-5 py-1.5 z-20 supports-[padding:max(0px)]:pt-[max(0.5rem,env(safe-area-inset-top))]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex items-center gap-2">
+              <span className="font-[family-name:var(--font-geist-mono)] text-[11px] text-muted-foreground/60 truncate">
+                {loading ? (
+                  <span className="text-foreground">claws is responding…</span>
+                ) : status?.gateway === "online" && status?.ai?.enabled ? (
+                  "session"
+                ) : status?.gateway === "online" && !status?.ai?.enabled ? (
+                  <span className="text-warning">no api key — settings → keys</span>
+                ) : status?.gateway === "offline" ? (
+                  <span className="text-warning">gateway offline</span>
+                ) : (
+                  "connecting…"
+                )}
+              </span>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-0.5 shrink-0">
               <Button type="button" variant="ghost" size="sm" onClick={async () => {
                 const next = !intelligencePanelOpen;
                 setIntelligencePanelOpen(next);
@@ -974,24 +983,24 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
                   setIntelligenceLoading(true);
                   try { const res = await getChatIntelligence(meta.chatId, meta.threadId); setIntelligenceData(res.intelligence ?? null); } catch { setIntelligenceData(null); } finally { setIntelligenceLoading(false); }
                 }
-              }} className={cn("rounded-[10px] text-muted-foreground hover:text-foreground", intelligencePanelOpen && "text-foreground")} title="Chat intelligence" aria-label={intelligencePanelOpen ? "Close chat intelligence panel" : "Open chat intelligence panel"}>
-                <ScanEye size={14} />
+              }} className={cn("h-7 px-1.5 rounded text-muted-foreground hover:text-foreground", intelligencePanelOpen && "text-foreground")} title="Chat intelligence" aria-label={intelligencePanelOpen ? "Close chat intelligence panel" : "Open chat intelligence panel"}>
+                <ScanEye size={13} />
               </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setContextPanelOpen(!contextPanelOpen)} className={cn("text-muted-foreground hover:text-foreground hidden xl:flex", contextPanelOpen && "text-foreground")} title={contextPanelOpen ? "Hide context panel" : "Show context panel"} aria-label={contextPanelOpen ? "Hide context panel" : "Show context panel"}>
-                {contextPanelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
+              <Button type="button" variant="ghost" size="sm" onClick={() => setContextPanelOpen(!contextPanelOpen)} className={cn("h-7 px-1.5 rounded text-muted-foreground hover:text-foreground hidden xl:flex", contextPanelOpen && "text-foreground")} title={contextPanelOpen ? "Hide context panel" : "Show context panel"} aria-label={contextPanelOpen ? "Hide context panel" : "Show context panel"}>
+                {contextPanelOpen ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setContextPanelOpen(true)} className="flex xl:hidden" title="Open context panel" aria-label="Open context panel">
-                <PanelRightOpen size={14} className="mr-1.5" />
-                Context
+              <Button type="button" variant="ghost" size="sm" onClick={() => setContextPanelOpen(true)} className="h-7 px-1.5 rounded text-muted-foreground hover:text-foreground flex xl:hidden gap-1" title="Open context panel" aria-label="Open context panel">
+                <PanelRightOpen size={13} />
+                <span className="text-[11px]">context</span>
               </Button>
               {history.length > 0 ? (
-                <Button type="button" variant="ghost" size="sm" onClick={clearConversation} className="text-muted-foreground hover:text-foreground" title="Clear and start over" aria-label="Clear conversation">
-                  <Trash2 size={14} />
+                <Button type="button" variant="ghost" size="sm" onClick={clearConversation} className="h-7 px-1.5 rounded text-muted-foreground hover:text-destructive transition-colors" title="Clear and start over" aria-label="Clear conversation">
+                  <Trash2 size={13} />
                 </Button>
               ) : null}
             </div>
           </div>
-          <div className="mt-2 flex items-center justify-between gap-3 text-[11px]">
+          <div className="mt-1.5 flex items-center justify-between gap-3 text-[11px]">
             <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
               {/* Status pill — combines gateway + AI into one compact indicator */}
               <Link
@@ -1249,39 +1258,39 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
                     </div>
                   ) : null}
 
-                  <div className="composer-dock rounded-[22px] border border-border/60 bg-card transition-all duration-200">
+                  <div className="composer-dock rounded-xl border border-border/60 bg-card transition-all duration-200">
                     <textarea
                       ref={inputRef}
                       value={message}
                       onChange={handleInputChange}
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
-                      placeholder="Ask anything…"
+                      placeholder="Plan, build, ship — / for commands, @ for context"
                       title="Enter to send · Shift+Enter for new line"
                       rows={1}
                       disabled={loading}
-                      className="w-full resize-none rounded-t-[22px] bg-transparent px-4 pt-3.5 pb-1 text-[15px] text-foreground placeholder:text-muted-foreground/70 focus:outline-none disabled:opacity-50 font-[family-name:var(--font-geist-sans)] min-h-[48px] max-h-[var(--composer-max-height)] leading-[1.45]"
+                      className="w-full resize-none rounded-t-xl bg-transparent px-3.5 pt-3 pb-0.5 text-[13.5px] text-foreground placeholder:text-muted-foreground/55 focus:outline-none disabled:opacity-50 font-[family-name:var(--font-geist-sans)] min-h-[40px] max-h-[var(--composer-max-height)] leading-[1.5]"
                     />
-                    <div className="flex items-center justify-between px-3 pb-2">
-                      <div className="flex items-center gap-1">
+                    <div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-0.5">
+                      <div className="flex items-center gap-0.5 min-w-0">
                         <button
                           type="button"
                           onClick={() => { setShowSlashMenu(!showSlashMenu); setShowMentionMenu(false); if (!showSlashMenu) { setMessage("/"); inputRef.current?.focus(); } }}
-                          className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                          className="flex items-center justify-center w-6 h-6 rounded text-muted-foreground/70 hover:text-foreground hover:bg-muted/50 transition-colors"
                           title="Slash commands"
                         >
-                          <Slash size={14} />
+                          <Slash size={11} strokeWidth={1.8} />
                         </button>
                         <button
                           type="button"
                           onClick={() => { setShowMentionMenu(!showMentionMenu); setShowSlashMenu(false); if (!showMentionMenu) { setMessage((prev) => prev + "@"); inputRef.current?.focus(); } }}
-                          className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                          className="flex items-center justify-center w-6 h-6 rounded text-muted-foreground/70 hover:text-foreground hover:bg-muted/50 transition-colors"
                           title="@ mention"
                         >
-                          <AtSign size={14} />
+                          <AtSign size={11} strokeWidth={1.8} />
                         </button>
-                        <label className="flex items-center justify-center w-7 h-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer" title="Attach image">
-                          <ImageIcon size={14} />
+                        <label className="flex items-center justify-center w-6 h-6 rounded text-muted-foreground/70 hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer" title="Attach image">
+                          <ImageIcon size={11} strokeWidth={1.8} />
                           <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
@@ -1294,33 +1303,37 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
                             e.target.value = "";
                           }} />
                         </label>
-                        <div className="h-4 w-px bg-border mx-1" />
+                        <div className="h-3.5 w-px bg-border/70 mx-1" />
                         <label className="sr-only" htmlFor="claws-chat-mode">Mode</label>
                         <select
                           id="claws-chat-mode"
                           value={chatMode}
                           onChange={(e) => setChatMode(e.target.value as ChatMode)}
                           title="Agent = tools on · Plan = read-only · Chat = no tools"
-                          className="rounded-lg border border-border bg-background px-2 py-1.5 text-[12px] text-foreground max-w-[11rem] sm:max-w-[14rem] focus:outline-none focus:ring-2 focus:ring-ring/50"
+                          className="rounded bg-transparent px-1.5 py-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors max-w-[8rem] focus:outline-none cursor-pointer font-[family-name:var(--font-geist-mono)]"
                         >
-                          <option value="agent">Agent — tools on</option>
-                          <option value="plan">Plan — read-only</option>
-                          <option value="chat">Chat — no tools</option>
+                          <option value="agent">agent</option>
+                          <option value="plan">plan</option>
+                          <option value="chat">chat</option>
                         </select>
                       </div>
                       <button
                         type="submit"
                         disabled={loading || !message.trim()}
-                        className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-primary-foreground shadow-sm transition-all duration-200 disabled:opacity-25 hover:opacity-95 active:scale-95 disabled:active:scale-100"
+                        className="flex items-center justify-center h-6 w-6 rounded transition-all duration-150 disabled:opacity-25 disabled:cursor-not-allowed hover:brightness-110 active:scale-95 shrink-0"
+                        style={{
+                          background: "var(--brand, #ff3344)",
+                          color: "#ffffff",
+                        }}
                         aria-label="Send message"
                       >
-                        {loading ? <Loader2 size={16} className="animate-spin" /> : <ArrowUp size={16} strokeWidth={2.2} />}
+                        {loading ? <Loader2 size={11} className="animate-spin" /> : <ArrowUp size={11} strokeWidth={2.6} />}
                       </button>
                     </div>
                   </div>
                 </form>
-                <p className="mt-1.5 text-[11px] text-muted-foreground/60 text-center">
-                  Enter to send · Shift+Enter for new line · Type / for commands · @ to mention
+                <p className="mt-1 text-[10px] text-muted-foreground/45 text-center font-[family-name:var(--font-geist-mono)]">
+                  enter to send · shift+enter newline · / commands · @ mentions
                 </p>
               </div>
             </div>

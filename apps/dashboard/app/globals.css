@@ -208,6 +208,7 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  font-size: 13px;
   font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
   line-height: 1.55;
   letter-spacing: -0.011em;
