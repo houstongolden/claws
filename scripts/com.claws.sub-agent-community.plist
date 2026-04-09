@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.claws.sub-agent-community</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>/Users/houstongolden/Desktop/CODE_2025/claws/scripts/sub-agent-community.sh</string>
+  </array>
+
+  <key>StartInterval</key>
+  <integer>1800</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/houstongolden/.claws/sub-agent-community.stdout.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/houstongolden/.claws/sub-agent-community.stderr.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/opt/homebrew/sbin:/usr/sbin:/sbin</string>
+    <key>CLAWS_REPO</key>
+    <string>/Users/houstongolden/Desktop/CODE_2025/claws</string>
+    <key>CLAWS_HOME</key>
+    <string>/Users/houstongolden/.claws</string>
+  </dict>
+</dict>
+</plist>

@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Copy,
   FileText,
+  Files,
   FolderKanban,
   ListChecks,
   Loader2,
@@ -19,15 +20,12 @@ import {
   Slash,
   ScanEye,
   PanelRight,
-  Trash2,
   Wrench,
   Workflow,
   X,
   Image as ImageIcon,
   AtSign,
   Bot,
-  PanelRightOpen,
-  PanelRightClose,
   ExternalLink,
 } from "lucide-react";
 import { Shell, useSidebar } from "./shell";
@@ -72,6 +70,8 @@ import {
   type SessionMeta,
 } from "../lib/session";
 import { useChatList } from "./chat-list-context";
+import { getChannelTeam, subscribeChannelMembers } from "../lib/channel-members";
+import { ChannelTeamBar } from "./channel-team-bar";
 
 type ToolResult = {
   toolName: string;
@@ -316,6 +316,7 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const [pastedImages, setPastedImages] = useState<string[]>([]);
+  const [channelTeamVersion, setChannelTeamVersion] = useState(0); // bump to refresh team snapshot
   const [artifactPanelOpen, setArtifactPanelOpen] = useState(false);
   const [selectedArtifactPath, setSelectedArtifactPath] = useState<string | null>(null);
   const [artifactContent, setArtifactContent] = useState<string | null>(null);
@@ -484,6 +485,62 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
     return { title: (task && typeof task.title === "string" ? task.title : null) || (typeof evt.note === "string" ? evt.note : null) || String(evt.event ?? "task"), status: (task && typeof task.status === "string" ? task.status : null) || "active", project: latestProjectInfo?.name ?? null };
   }, [events, latestProjectInfo]);
   const activeWorkflows = useMemo(() => workflows.filter((w) => w.status === "running" || w.status === "pending" || w.status === "waiting-approval"), [workflows]);
+
+  /** Pull the channel team (multi-agent members) for the current chat. */
+  const channelTeam = useMemo(() => {
+    const chatId = currentMeta?.chatId ?? meta.chatId;
+    if (!chatId) return null;
+    return getChannelTeam(chatId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMeta?.chatId, meta.chatId, channelTeamVersion]);
+  /** A chat is "channel mode" when it has members configured OR its id looks like a channel. */
+  const isChannel = useMemo(() => {
+    const chatId = currentMeta?.chatId ?? meta.chatId;
+    if (!chatId) return false;
+    if (channelTeam && channelTeam.memberAgentIds.length > 0) return true;
+    // Heuristic: the legacy channel creator sets chat ids that look like "ch_..." — keep both paths safe
+    return chatId.startsWith("ch_") || chatId.startsWith("channel_");
+  }, [currentMeta?.chatId, meta.chatId, channelTeam]);
+
+  // Keep the team snapshot fresh when localStorage changes externally or the bar edits
+  useEffect(() => {
+    const chatId = currentMeta?.chatId ?? meta.chatId;
+    if (!chatId) return;
+    const unsubscribe = subscribeChannelMembers(chatId, () => {
+      setChannelTeamVersion((v) => v + 1);
+    });
+    const storageHandler = () => setChannelTeamVersion((v) => v + 1);
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", storageHandler);
+    }
+    return () => {
+      unsubscribe();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("storage", storageHandler);
+      }
+    };
+  }, [currentMeta?.chatId, meta.chatId]);
+  /**
+   * Only show the context panel button when there's actually something contextual
+   * to show. Avoids empty peek clutter.
+   */
+  const hasContextToShow = useMemo(
+    () =>
+      approvals.length > 0 ||
+      memoryHits.length > 0 ||
+      touchedFiles.length > 0 ||
+      activeWorkflows.length > 0 ||
+      Boolean(latestProjectInfo) ||
+      traces.length > 0,
+    [
+      approvals.length,
+      memoryHits.length,
+      touchedFiles.length,
+      activeWorkflows.length,
+      latestProjectInfo,
+      traces.length,
+    ]
+  );
   const inferredContextTab = useMemo<ContextTab>(() => {
     if (approvals.length > 0) return "approvals";
     if (lastTool?.toolName === "memory.search" && memoryHits.length > 0) return "memory";
@@ -590,6 +647,13 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
             history: priorHistory,
             mode: opts?.mode ?? chatMode,
             maxSteps: opts?.maxSteps ?? maxSteps,
+            // Multi-agent channel support: pass team members + lead when in a channel
+            ...(channelTeam && channelTeam.memberAgentIds.length > 0
+              ? {
+                  participantAgentIds: channelTeam.memberAgentIds,
+                  leadAgentId: channelTeam.leadAgentId ?? channelTeam.memberAgentIds[0],
+                }
+              : {}),
           }),
         });
         if (res.status === 501 || !res.ok || !res.body) return false;
@@ -976,26 +1040,44 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
               </span>
             </div>
             <div className="flex items-center gap-0.5 shrink-0">
-              <Button type="button" variant="ghost" size="sm" onClick={async () => {
-                const next = !intelligencePanelOpen;
-                setIntelligencePanelOpen(next);
-                if (next && meta.chatId) {
-                  setIntelligenceLoading(true);
-                  try { const res = await getChatIntelligence(meta.chatId, meta.threadId); setIntelligenceData(res.intelligence ?? null); } catch { setIntelligenceData(null); } finally { setIntelligenceLoading(false); }
-                }
-              }} className={cn("h-7 px-1.5 rounded text-muted-foreground hover:text-foreground", intelligencePanelOpen && "text-foreground")} title="Chat intelligence" aria-label={intelligencePanelOpen ? "Close chat intelligence panel" : "Open chat intelligence panel"}>
-                <ScanEye size={13} />
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setContextPanelOpen(!contextPanelOpen)} className={cn("h-7 px-1.5 rounded text-muted-foreground hover:text-foreground hidden xl:flex", contextPanelOpen && "text-foreground")} title={contextPanelOpen ? "Hide context panel" : "Show context panel"} aria-label={contextPanelOpen ? "Hide context panel" : "Show context panel"}>
-                {contextPanelOpen ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setContextPanelOpen(true)} className="h-7 px-1.5 rounded text-muted-foreground hover:text-foreground flex xl:hidden gap-1" title="Open context panel" aria-label="Open context panel">
-                <PanelRightOpen size={13} />
-                <span className="text-[11px]">context</span>
-              </Button>
-              {history.length > 0 ? (
-                <Button type="button" variant="ghost" size="sm" onClick={clearConversation} className="h-7 px-1.5 rounded text-muted-foreground hover:text-destructive transition-colors" title="Clear and start over" aria-label="Clear conversation">
-                  <Trash2 size={13} />
+              {/* Assets panel — only shows when the session has actually touched files (Manus-style) */}
+              {touchedFiles.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setLiveCanvasOpen(true);
+                    if (touchedFiles[0]) openArtifact(touchedFiles[0]);
+                  }}
+                  className={cn(
+                    "h-7 px-1.5 rounded text-muted-foreground hover:text-foreground flex items-center gap-1",
+                    (liveCanvasOpen || artifactPanelOpen) && "text-foreground bg-muted/40"
+                  )}
+                  title={`${touchedFiles.length} asset${touchedFiles.length > 1 ? "s" : ""} in this session`}
+                  aria-label="Session assets"
+                >
+                  <Files size={13} />
+                  <span className="text-[10px] tabular-nums font-[family-name:var(--font-geist-mono)]">
+                    {touchedFiles.length}
+                  </span>
+                </Button>
+              ) : null}
+              {/* Context panel — only when there's real context content (approvals, traces, memory hits, etc.) */}
+              {hasContextToShow ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setContextPanelOpen(!contextPanelOpen)}
+                  className={cn(
+                    "h-7 px-1.5 rounded text-muted-foreground hover:text-foreground",
+                    contextPanelOpen && "text-foreground bg-muted/40"
+                  )}
+                  title={contextPanelOpen ? "Hide context" : "Show context"}
+                  aria-label={contextPanelOpen ? "Hide context panel" : "Show context panel"}
+                >
+                  <PanelRight size={13} />
                 </Button>
               ) : null}
             </div>
@@ -1088,6 +1170,12 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
               </a>
             </div>
           </div>
+          {/* Channel team bar — only renders when the chat id is a channel */}
+          {isChannel ? (
+            <div className="mt-1.5 border-t border-border/30 pt-1.5">
+              <ChannelTeamBar channelId={currentMeta?.chatId ?? meta.chatId} />
+            </div>
+          ) : null}
         </header>
 
         {intelligencePanelOpen ? (

@@ -10,7 +10,6 @@ import {
   FolderKanban,
   MessageSquare,
   Settings,
-  PanelLeftClose,
   PanelLeft,
   FolderOpen,
   ChevronRight,
@@ -270,7 +269,7 @@ export function Nav() {
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             aria-expanded={!collapsed}
           >
-            {collapsed ? <PanelLeft size={14} strokeWidth={1.8} /> : <PanelLeftClose size={14} strokeWidth={1.8} />}
+            <PanelLeft size={14} strokeWidth={1.8} />
           </button>
         </div>
       </div>
