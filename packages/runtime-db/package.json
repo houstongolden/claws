@@ -12,7 +12,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "echo lint runtime-db",
-    "test": "echo test runtime-db",
+    "test": "node --import tsx --test src/session-events.test.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {

@@ -6,6 +6,11 @@ import type { StaticRouter } from "@claws/core/router";
 import type { WorkflowRun, WorkflowDefinition, TenantConfig } from "@claws/shared/types";
 import { resolveTenant } from "./tenantRouter";
 import { parseDestination } from "./channelMapping";
+import {
+  SessionEventStream,
+  openEventStreamSession,
+  listEventStreamSessions,
+} from "@claws/runtime-db";
 
 function getEnvWorkspaceRoot(): string {
   const root = process.env.CLAWS_WORKSPACE_ROOT;
@@ -222,6 +227,161 @@ export async function startGateway(port: number, runtime?: GatewayRuntime): Prom
             tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name },
           }
         });
+      }
+
+      /* ─────────────────────────────────────────────────────────
+         JSONL session events — Phase D2
+         These read from ~/.claws/sessions/*.jsonl via SessionEventStream
+         ───────────────────────────────────────────────────────── */
+
+      if (pathname === "/api/sessions" && req.method === "GET") {
+        try {
+          const ids = await listEventStreamSessions();
+          const sessions = await Promise.all(
+            ids.map(async (id) => {
+              const stream = openEventStreamSession(id);
+              const size = await stream.size();
+              return { id, sizeBytes: size };
+            })
+          );
+          return json(res, 200, {
+            ok: true,
+            sessions,
+            count: sessions.length,
+          });
+        } catch (err) {
+          return json(res, 500, {
+            ok: false,
+            error: err instanceof Error ? err.message : "listSessions failed",
+          });
+        }
+      }
+
+      // Match /api/sessions/:id and subroutes
+      const sessionMatch = pathname.match(/^\/api\/sessions\/([^/]+)(?:\/(tree|stream|events))?$/);
+      if (sessionMatch && req.method === "GET") {
+        const sessionId = sessionMatch[1];
+        const subroute = sessionMatch[2] ?? "events";
+
+        try {
+          const stream = openEventStreamSession(sessionId);
+          const exists = (await stream.size()) > 0;
+          if (!exists) {
+            return json(res, 404, { ok: false, error: "Session not found" });
+          }
+
+          if (subroute === "tree") {
+            const tree = await stream.getAgentTree();
+            const cost = await stream.getCostSummary();
+            const pending = await stream.getPendingApprovals();
+            return json(res, 200, { ok: true, tree, cost, pendingApprovals: pending });
+          }
+
+          if (subroute === "events") {
+            // Optional ?after=<seq> to fetch only events after a given seq
+            const after = Number(requestUrl.searchParams.get("after") ?? 0);
+            const events = await stream.loadAll();
+            const filtered = after > 0 ? events.filter((e) => e.seq > after) : events;
+            return json(res, 200, {
+              ok: true,
+              sessionId,
+              events: filtered,
+              count: filtered.length,
+              lastSeq: events.length > 0 ? events[events.length - 1].seq : 0,
+            });
+          }
+
+          if (subroute === "stream") {
+            // SSE stream — send all past events, then poll for new ones every 1s
+            res.writeHead(200, {
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              Connection: "keep-alive",
+              "Access-Control-Allow-Origin": "*",
+            });
+
+            let lastSeq = 0;
+            const writeEvent = (data: unknown) => {
+              if (res.destroyed) return;
+              res.write(`data: ${JSON.stringify(data)}\n\n`);
+            };
+
+            // Initial snapshot
+            try {
+              const events = await stream.loadAll();
+              for (const ev of events) {
+                writeEvent({ type: "event", event: ev });
+                lastSeq = Math.max(lastSeq, ev.seq);
+              }
+              writeEvent({ type: "snapshot-complete", lastSeq });
+            } catch (err) {
+              writeEvent({
+                type: "error",
+                error: err instanceof Error ? err.message : "snapshot failed",
+              });
+            }
+
+            // Poll for new events every 1s
+            const pollInterval = setInterval(async () => {
+              if (res.destroyed) {
+                clearInterval(pollInterval);
+                return;
+              }
+              try {
+                const fresh = openEventStreamSession(sessionId);
+                const all = await fresh.loadAll();
+                for (const ev of all) {
+                  if (ev.seq > lastSeq) {
+                    writeEvent({ type: "event", event: ev });
+                    lastSeq = ev.seq;
+                  }
+                }
+                // Heartbeat to keep the connection alive
+                writeEvent({ type: "heartbeat", at: new Date().toISOString(), lastSeq });
+              } catch (err) {
+                writeEvent({
+                  type: "error",
+                  error: err instanceof Error ? err.message : "poll failed",
+                });
+              }
+            }, 1000);
+
+            req.on("close", () => {
+              clearInterval(pollInterval);
+            });
+
+            return;
+          }
+        } catch (err) {
+          return json(res, 500, {
+            ok: false,
+            error: err instanceof Error ? err.message : "session read failed",
+          });
+        }
+      }
+
+      // Debug endpoint: create a demo session with fake events (for testing the UI)
+      if (pathname === "/api/sessions/demo" && req.method === "POST") {
+        try {
+          const { createEventStreamSession } = await import("@claws/runtime-db");
+          const stream = createEventStreamSession();
+          await stream.append({ type: "session.start", trigger: "user", prompt: "Demo session" });
+          await stream.append({ type: "agent.spawn", agent: "orchestrator" });
+          await stream.append({ type: "agent.spawn", agent: "design-lead", parent: "orchestrator", task: "update dashboard styles" });
+          await stream.append({ type: "agent.spawn", agent: "eng-lead", parent: "orchestrator", task: "wire new API endpoint" });
+          await stream.append({ type: "agent.status", agent: "design-lead", status: "working" });
+          await stream.append({ type: "tool.call", agent: "design-lead", tool: "fs.write", callId: "c1", args: { path: "globals.css" } });
+          await stream.append({ type: "cost.delta", agent: "design-lead", provider: "openrouter", model: "gpt-4o-mini", inputTokens: 1200, outputTokens: 400, costUsd: 0.0025 });
+          await stream.append({ type: "tool.result", agent: "design-lead", tool: "fs.write", callId: "c1", ok: true, output: { bytes: 4200 } });
+          await stream.append({ type: "agent.status", agent: "eng-lead", status: "blocked", reason: "needs approval for DB migration" });
+          await stream.append({ type: "approval.requested", approvalId: "a1", agent: "eng-lead", reason: "DB migration", tool: "sandbox.exec" });
+          return json(res, 200, { ok: true, sessionId: stream.sessionId, path: stream.path });
+        } catch (err) {
+          return json(res, 500, {
+            ok: false,
+            error: err instanceof Error ? err.message : "demo session failed",
+          });
+        }
       }
 
       if (pathname === "/api/env" && req.method === "GET") {

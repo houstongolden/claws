@@ -1,10 +1,12 @@
 import { LivePanel } from "./live-panel";
+import { AgentTreeExplorer } from "./agent-tree";
 
 export default function StudioHome() {
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-6 py-16">
       <Header />
       <LivePanel />
+      <AgentTreeExplorer />
       <NextSteps />
       <HookReference />
       <Footer />

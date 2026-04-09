@@ -230,6 +230,17 @@ export interface SessionStreamOptions {
 type Subscriber = (event: SessionEvent) => void;
 
 /**
+ * Distributive Omit — across a discriminated union, apply Omit to EACH
+ * variant independently, so the discriminant and its branch-specific
+ * fields stay paired.
+ */
+type DistributiveOmit<T, K extends keyof never> = T extends unknown
+  ? Omit<T, K>
+  : never;
+
+export type SessionEventInput = DistributiveOmit<SessionEvent, "ts" | "seq">;
+
+/**
  * SessionEventStream — the single source of truth for reading and writing
  * events for one session.
  *
@@ -255,9 +266,7 @@ export class SessionEventStream {
   }
 
   /** Append one event to the JSONL log. */
-  async append(
-    event: Omit<SessionEvent, "ts" | "seq">
-  ): Promise<SessionEvent> {
+  async append(event: SessionEventInput): Promise<SessionEvent> {
     await this.ensureDir();
     if (this.seqCounter === 0) {
       // First write on this instance — read existing file to continue seq
