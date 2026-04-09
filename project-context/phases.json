@@ -140,6 +140,21 @@
       "reason": "Deploy heavy infra/workspace image to Fly as claws-workspace-base. Deferred until a real user provisioning request."
     },
     {
+      "id": "I",
+      "name": "Tests + gateway session API + live agent tree in Studio",
+      "status": "complete",
+      "completedAt": "2026-04-08",
+      "artifacts": [
+        "packages/runtime-db/src/session-events.test.ts (15 tests)",
+        "packages/core/src/permissions.test.ts (30 tests)",
+        "apps/worker/src/worker-state.test.ts (22 tests)",
+        "apps/gateway/src/httpServer.ts (+4 session endpoints, +1 demo endpoint)",
+        "apps/studio/app/agent-tree.tsx (live tree explorer client component)",
+        "67/67 tests passing, typecheck clean, end-to-end verified"
+      ],
+      "notes": "D2 ports are now production-wired. Studio has a live agent tree view at http://localhost:4319"
+    },
+    {
       "id": "H",
       "name": "CLI-inspired design system (DESIGN.md v2 + BRAND.md)",
       "status": "complete",
