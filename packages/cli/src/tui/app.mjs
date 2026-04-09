@@ -243,7 +243,7 @@ export async function runTui() {
     const pending = data?.approvals?.length || 0;
     const pendingBadge = pending > 0 ? style(` ${approvalCountLabel(pending)} `, FG_YELLOW, BOLD) : "";
     const refreshIndicator = state.refreshing ? style(" ◐ ", FG_CYAN) : "";
-    renderHeaderBar(`ᐳᐸ Claws  ${pendingBadge}${refreshIndicator}`);
+    renderHeaderBar(`🦞 Claws  ${pendingBadge}${refreshIndicator}`);
 
     // Status bar (bottom)
     const tabHint = PANES.map((p) =>

@@ -420,30 +420,17 @@ code, kbd, pre, [data-code] {
 }
 
 /* ────────────────────────────────────────────────────────────────
-   Cursor-tight pass (Phase C)
-   Apply DESIGN.md v1: mission control density, red accent, less air.
-   These overrides layer on top of existing component classes without
-   requiring a rewrite.
+   Phase J — Polish pass
+   Replaces the over-aggressive Phase C overrides with a cleaner,
+   more Cursor-like aesthetic. Main fixes:
+   - Brand focus ring no longer triggers on textareas/inputs (it was
+     causing the stuck-red-border bug on the chat composer)
+   - Original 14px body type preserved (was getting cramped at 13.5)
+   - Sidebar uses its own component sizing (was clobbered before)
+   - Buttons and primary CTAs still get brand red treatment
    ──────────────────────────────────────────────────────────────── */
 
-/* Tighter body type */
-body {
-  font-size: 13.5px;
-  line-height: 1.5;
-}
-
-/* Tighter headings */
-h1 { letter-spacing: -0.025em; }
-h2 { letter-spacing: -0.02em; }
-h3 { letter-spacing: -0.015em; }
-
-/* Tighter buttons */
-button,
-.btn {
-  letter-spacing: -0.005em;
-}
-
-/* Brand accent for primary CTAs — override muted primary */
+/* Brand accent for primary CTAs — opt-in via .btn-primary or data-variant="primary" */
 .dark [data-variant="primary"],
 .dark button[data-variant="primary"],
 .dark .btn-primary {
@@ -458,57 +445,34 @@ button,
   border-color: var(--brand-hover);
 }
 
-/* Focus rings use brand color in dark mode */
+/* Brand focus rings — but ONLY for buttons and links, NOT form inputs.
+   Form inputs (textarea, input, select) are inside cards/composers that
+   own their own focus styling. Stacking a brand glow on top creates the
+   stuck-red-border bug. */
 .dark a:focus-visible,
 .dark button:focus-visible,
-.dark [role="button"]:focus-visible,
-.dark input:focus-visible,
-.dark select:focus-visible,
-.dark textarea:focus-visible {
+.dark [role="button"]:focus-visible {
   box-shadow: 0 0 0 2px var(--background), 0 0 0 4px color-mix(in srgb, var(--brand) 45%, transparent);
 }
 
-/* Sidebar: tighter items, flatter look */
-.dark [data-sidebar] button,
-.dark [data-sidebar] a {
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 6px;
+/* Form inputs get a subtle 1px brand border on focus instead of a glowing ring */
+.dark input:focus-visible,
+.dark textarea:focus-visible,
+.dark select:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
-/* Glass bar: shorter, tighter */
-.glass-bar {
-  min-height: 44px;
+/* Composer dock: gentle border, no aggressive ring on focus-within */
+.dark .composer-dock {
+  border-color: rgba(255, 255, 255, 0.08);
 }
-
-/* Composer dock: less padding, more content visible */
-.composer-dock {
-  border-radius: 10px;
-}
-
-/* Cards: tighter radius, thinner borders */
-.dark .card-interactive,
-.dark [data-card] {
-  border-radius: 8px;
-  border-width: 1px;
-}
-
-/* Tables: denser rows */
-.dark table td,
-.dark table th {
-  padding: 6px 10px;
-  font-size: 12px;
-}
-
-/* Code blocks: slightly tighter */
-.chat-md pre {
-  padding: 0.7rem 0.85rem;
-  font-size: 0.78125rem;
-  border-radius: 8px;
-}
-.chat-md code:not(pre code) {
-  padding: 0.1em 0.35em;
-  font-size: 0.88em;
+.dark .composer-dock:focus-within {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    0 24px 48px -12px rgba(0, 0, 0, 0.5);
 }
 
 /* Agent status dot (new utility for future agent tree UI) */

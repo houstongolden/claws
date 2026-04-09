@@ -28,6 +28,7 @@ import {
   Bot,
   PanelRightOpen,
   PanelRightClose,
+  ExternalLink,
 } from "lucide-react";
 import { Shell, useSidebar } from "./shell";
 import { ArtifactPanel } from "./artifact-panel";
@@ -230,26 +231,41 @@ function getToolResultSummary(toolName: string, data: unknown, error?: string): 
 
 const SUGGESTED_PROMPTS = [
   {
+    label: "Tell me about you",
+    command:
+      "Hey, I'm new here. Introduce yourself, then ask me what I'm working on. Save what I tell you to memory.",
+    note: "Onboarding · sets up your context",
+  },
+  {
+    label: "Scan my workspace",
+    command:
+      "Read my workspace folder, give me a 5-bullet read on what's in it, and save the highlights to memory.",
+    note: "Quick orientation · uses fs + memory",
+  },
+  {
     label: "Vibe code a landing page",
     command:
-      "Write a stunning single-file HTML landing page about Claws (2 sections: hero + features) to projects/claws-demos/claws-landing.html — bold typography, dark theme, no generic AI slop.",
-    note: "Lovable/v0 style — live preview opens on the right.",
+      "Build a polished single-file HTML landing page (hero + features) at projects/claws-demos/landing.html. Distinctive type, dark theme, no purple gradients.",
+    note: "Live preview opens on the right",
   },
   {
-    label: "Research + cite sources",
+    label: "Research with sources",
     command:
-      "Search the web for the latest on AI agent frameworks 2025, summarize with bullet points and link every claim to a source URL. Save key findings to memory.",
-    note: "Manus/Perplexity style — uses Tavily if configured.",
+      "Search the web for the latest in AI agent frameworks. Summarize in 5 bullets, cite every claim, save key findings to memory.",
+    note: "Tavily web search + memory",
   },
   {
-    label: "Read a doc URL",
+    label: "What's running?",
     command:
-      "Fetch https://example.com and tell me the page title and main topic in 3 bullets.",
-    note: "research.fetchUrl — no API key needed.",
+      "Give me the current gateway status: AI provider, model, registered tools count, active workflows, pending approvals.",
+    note: "status.get · 3-line answer",
   },
-  { label: "See workspace status", command: "What is the gateway status and workspace root?", note: "status.get + short answer." },
-  { label: "Scaffold + task", command: "create a project called launch-site then add a task: ship hero copy", note: "Projects + tasks." },
-  { label: "Search memory", command: "search memory for anything about release or onboarding", note: "Workspace memory recall." },
+  {
+    label: "Search my memory",
+    command:
+      "Search memory for anything I've told you about my current project. If you find nothing, ask me to fill you in.",
+    note: "memory.search · learns over time",
+  },
 ];
 
 export function SessionWorkbench() {
@@ -975,58 +991,93 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
               ) : null}
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-border/40 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px]">
-            <span className="flex items-center gap-1.5 text-muted-foreground rounded-full bg-muted/50 px-2 py-0.5">
-              <StatusDot variant={status?.gateway === "online" ? "success" : "neutral"} />
-              {status?.gateway === "online" ? "Online" : status?.gateway === "offline" ? "Offline" : "Connecting"}
-            </span>
-            {status?.gateway === "online" ? (
-              <Link href="/settings" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline rounded-full bg-muted/30 px-2 py-0.5 hover:bg-muted/50">
-                <StatusDot variant={status?.ai?.enabled ? "success" : "warning"} />
-                {status?.ai?.enabled ? `AI: ${status.ai.model ?? "active"}` : "AI: not configured"}
+          <div className="mt-2 flex items-center justify-between gap-3 text-[11px]">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+              {/* Status pill — combines gateway + AI into one compact indicator */}
+              <Link
+                href="/settings"
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline rounded-md bg-muted/40 hover:bg-muted/60 px-2 py-1 font-[family-name:var(--font-geist-mono)] tracking-tight"
+              >
+                <StatusDot variant={status?.gateway === "online" && status?.ai?.enabled ? "success" : status?.gateway === "online" ? "warning" : "neutral"} />
+                {status?.gateway === "online"
+                  ? status?.ai?.enabled
+                    ? status.ai.model ?? "ai online"
+                    : "no api key"
+                  : status?.gateway === "offline"
+                    ? "offline"
+                    : "connecting"}
               </Link>
-            ) : null}
-            <Link href="/approvals" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline rounded-full px-2 py-0.5 hover:bg-muted/40">
-              <ShieldAlert size={12} className={approvals.length > 0 ? "text-warning" : ""} />
-              {approvals.length > 0 ? `${approvals.length} pending` : "Approvals"}
-            </Link>
-            <Link href="/traces" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline">
-              <Activity size={12} />
-              Traces
-            </Link>
-            <Link href="/workflows" className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline">
-              <Workflow size={12} />
-              {activeWorkflows.length > 0 ? `${activeWorkflows.length} active` : "Workflows"}
-            </Link>
-            <button
-              type="button"
-              onClick={() => {
-                setLiveCanvasOpen(true);
-                if (touchedFiles[0]) openArtifact(touchedFiles[0]);
-              }}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[12px] font-medium transition-colors",
-                liveCanvasOpen || artifactPanelOpen
-                  ? "bg-muted text-foreground border border-border"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              )}
-            >
-              <PanelRight size={12} />
-              Canvas
-            </button>
-            {history.length > 0 ? (
+              {/* Approvals — only show if pending */}
+              {approvals.length > 0 ? (
+                <Link
+                  href="/approvals"
+                  className="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors no-underline font-[family-name:var(--font-geist-mono)] tracking-tight"
+                  style={{
+                    color: "var(--color-warning, #f5a623)",
+                    background: "color-mix(in srgb, var(--warning, #f5a623) 12%, transparent)",
+                  }}
+                >
+                  <ShieldAlert size={11} />
+                  {approvals.length} approval{approvals.length > 1 ? "s" : ""}
+                </Link>
+              ) : null}
+              {/* Active workflows — only show if any active */}
+              {activeWorkflows.length > 0 ? (
+                <Link
+                  href="/workflows"
+                  className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors no-underline rounded-md px-2 py-1 font-[family-name:var(--font-geist-mono)] tracking-tight"
+                >
+                  <Workflow size={11} />
+                  {activeWorkflows.length} running
+                </Link>
+              ) : null}
+              {/* Canvas toggle (always available) */}
               <button
                 type="button"
                 onClick={() => {
-                  const lines = history.map((e) => `## ${e.role}\n${e.displayContent ?? e.content}`);
-                  void navigator.clipboard.writeText(lines.join("\n\n"));
+                  setLiveCanvasOpen(true);
+                  if (touchedFiles[0]) openArtifact(touchedFiles[0]);
                 }}
-                className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors font-[family-name:var(--font-geist-mono)] tracking-tight",
+                  liveCanvasOpen || artifactPanelOpen
+                    ? "bg-muted text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                )}
+                title="Toggle canvas panel"
               >
-                <Copy size={12} />
-                Export chat
+                <PanelRight size={11} />
+                canvas
               </button>
-            ) : null}
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {history.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const lines = history.map((e) => `## ${e.role}\n${e.displayContent ?? e.content}`);
+                    void navigator.clipboard.writeText(lines.join("\n\n"));
+                  }}
+                  className="flex items-center gap-1 text-muted-foreground hover:text-foreground rounded-md px-2 py-1 hover:bg-muted/40 transition-colors font-[family-name:var(--font-geist-mono)] tracking-tight"
+                  title="Export chat as markdown"
+                >
+                  <Copy size={11} />
+                  export
+                </button>
+              ) : null}
+              {/* Personal link to claws.so for the founder */}
+              <a
+                href="https://claws-landing.vercel.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground rounded-md px-2 py-1 hover:bg-muted/40 transition-colors font-[family-name:var(--font-geist-mono)] tracking-tight no-underline"
+                title="Open claws.so landing page"
+              >
+                <span className="text-[12px]">🦞</span>
+                claws.so
+                <ExternalLink size={10} />
+              </a>
+            </div>
           </div>
         </header>
 
@@ -1198,7 +1249,7 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
                     </div>
                   ) : null}
 
-                  <div className="composer-dock rounded-[22px] border border-border/80 bg-card focus-within:ring-2 focus-within:ring-ring/25 focus-within:border-transparent transition-shadow duration-200">
+                  <div className="composer-dock rounded-[22px] border border-border/60 bg-card transition-all duration-200">
                     <textarea
                       ref={inputRef}
                       value={message}
@@ -1339,27 +1390,67 @@ function SessionWorkbenchLoaded({ meta }: { meta: SessionMeta }) {
 
 function SessionEmptyState({ onSend }: { onSend: (cmd: string) => void }) {
   return (
-    <div className="flex flex-col items-center justify-center py-14 sm:py-24 gap-14">
-      <div className="relative flex flex-col items-center gap-5 text-center">
-        <div className="absolute -inset-32 rounded-full bg-gradient-to-b from-foreground/[0.04] via-transparent to-transparent blur-3xl pointer-events-none dark:from-white/[0.06]" aria-hidden />
-        <div className="relative space-y-2 max-w-md px-4">
-          <p className="text-[clamp(1.35rem,3vw,1.65rem)] font-semibold text-foreground tracking-tight text-balance">What can I help with?</p>
-          <p className="text-[15px] text-muted-foreground leading-relaxed font-[450] text-pretty">
-            Code, research, and tasks—one calm workspace.
+    <div className="flex flex-col items-center justify-center py-12 sm:py-20 gap-10">
+      <div className="relative flex flex-col items-center gap-4 text-center">
+        <div
+          className="absolute -inset-32 rounded-full pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, rgba(255,51,68,0.07) 0%, transparent 60%)",
+          }}
+          aria-hidden
+        />
+        <div className="relative flex items-center justify-center">
+          <span className="text-5xl">🦞</span>
+        </div>
+        <div className="relative space-y-1.5 max-w-md px-4">
+          <p
+            className="font-semibold text-foreground tracking-tight"
+            style={{ fontSize: "clamp(1.35rem, 3vw, 1.55rem)", letterSpacing: "-0.02em" }}
+          >
+            Hey, I'm Claws.
+          </p>
+          <p className="text-[14px] text-muted-foreground leading-relaxed font-[450] text-pretty max-w-sm mx-auto">
+            Your local-first agent harness. I have 24 tools, persistent memory, and a personality.
+            Tell me what you're working on and I'll get to work.
           </p>
         </div>
       </div>
       <div className="w-full max-w-2xl px-2">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {SUGGESTED_PROMPTS.map((prompt) => (
+        <div
+          className="font-[family-name:var(--font-geist-mono)] text-[10px] uppercase tracking-wider mb-3 text-center"
+          style={{ color: "var(--color-text-muted, #737373)" }}
+        >
+          // pick one to get started
+        </div>
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+          {SUGGESTED_PROMPTS.map((prompt, idx) => (
             <button
               key={prompt.label}
               type="button"
               onClick={() => onSend(prompt.command)}
-              className="group rounded-2xl border border-border/80 bg-card p-4 text-left transition-all duration-200 hover:border-border hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ring"
+              className="group relative rounded-xl border border-border/60 bg-card p-3.5 text-left transition-all duration-200 hover:border-border hover:bg-muted/30 focus-visible:outline-none"
             >
-              <div className="text-[13px] font-medium text-foreground tracking-tight">{prompt.label}</div>
-              <div className="mt-1 text-[12px] text-muted-foreground leading-snug">{prompt.note}</div>
+              {idx === 0 && (
+                <div
+                  className="absolute -top-1.5 -right-1.5 rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider"
+                  style={{
+                    background: "var(--color-brand, #ff3344)",
+                    color: "#ffffff",
+                  }}
+                >
+                  start
+                </div>
+              )}
+              <div className="text-[13px] font-medium text-foreground tracking-tight">
+                {prompt.label}
+              </div>
+              <div
+                className="mt-1 font-[family-name:var(--font-geist-mono)] text-[10.5px] leading-snug"
+                style={{ color: "var(--color-text-muted, #737373)" }}
+              >
+                {prompt.note}
+              </div>
             </button>
           ))}
         </div>
